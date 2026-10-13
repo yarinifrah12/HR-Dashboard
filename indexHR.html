@@ -85,6 +85,7 @@ select{font:inherit;font-size:.85rem;background:var(--surface);color:var(--fg);b
 .mt-card{background:var(--surface);border:2px solid var(--line);border-radius:10px;padding:10px 12px;display:flex;flex-direction:column;gap:2px;min-width:0}
 .mt-card.good{border-color:var(--good)} .mt-card.warn{border-color:var(--warn-fill)} .mt-card.bad{border-color:var(--bad)}
 .mt-h{display:flex;justify-content:space-between;align-items:baseline;gap:8px} .mt-h h3{margin:0;font-size:1.15rem}
+.mt-open{all:unset;cursor:pointer;display:block;border-radius:6px}.mt-open:hover{background:var(--surface2)}.mt-open:focus-visible{outline:3px solid var(--accent);outline-offset:2px}button.pstack.mt-open{display:flex}
 .mt-big{font-family:var(--f-num);font-size:2rem;font-weight:700;font-variant-numeric:tabular-nums;line-height:1.1}
 .mt-big.good{color:var(--good)} .mt-big.warn{color:var(--warn)} .mt-big.bad{color:var(--bad)}
 .mt-sub{color:var(--muted);font-size:.8rem}
@@ -227,7 +228,7 @@ details summary{cursor:pointer;font-weight:600}
    client  = Application (client) ID
    folder  = קישור לתיקייה בשירפוינט שבה נשמרים 3 הקבצים
    כל עוד אחד מהם ריק, הדף עובד רק עם העלאת קבצים ידנית. */
-window.SP_CONFIG={tenant:"",client:"",folder:""};
+window.SP_CONFIG={tenant:"6b14abc0-8a0a-497c-8308-1151ee2ec242",client:"a4570c4d-7624-42e9-90f4-aa60e1dd9cf4",folder:"https://leebarltd.sharepoint.com/:f:/s/leebar/IgAPKqOMode0QL7Rw8zq7Q1bAaX9NDMJsSA8VxRvj_Nn5Ko?e=Vrmj7F"};
 </script>
 <script>/*! @azure/msal-browser v2.38.4 2024-03-26 */
 "use strict";!function(e,t){"object"==typeof exports&&"undefined"!=typeof module?t(exports):"function"==typeof define&&define.amd?define(["exports"],t):t((e="undefined"!=typeof globalThis?globalThis:e||self).msal={})}(this,(function(e){
@@ -480,7 +481,7 @@ let spApp=null;
 async function spToken(interactive){
   if(!spApp){spApp=new msal.PublicClientApplication({auth:{clientId:SP.client,authority:'https://login.microsoftonline.com/'+SP.tenant,redirectUri:location.origin+location.pathname},cache:{cacheLocation:'localStorage'}});
     if(spApp.initialize)await spApp.initialize();await spApp.handleRedirectPromise().catch(()=>null)}
-  const req={scopes:['Files.Read.All']};const acc=spApp.getAllAccounts()[0];
+  const req={scopes:['Files.ReadWrite.All']};const acc=spApp.getAllAccounts()[0];
   if(acc){try{return (await spApp.acquireTokenSilent({...req,account:acc})).accessToken}catch(e){}}
   if(!interactive)return null;
   const r=await spApp.loginPopup(req);return r.accessToken}
@@ -715,8 +716,8 @@ function renderMt(){
   const card=c=>{const a=clusterAgg(c);const v=k?a.alpon:null,lv=lvlOf(v,a.std);if(!a.std&&v)cnt.nostd++;else if(cnt[lv]!=null)cnt[lv]++;
     const ss=STD.stations.filter(s=>s.c===c&&!empty(s));
     const g=ss.length>1?Math.max(1,Math.ceil(ss.length/6)):1;
-    return `<div class="mt-card ${lv}" style="flex:${g} 1 ${g*210}px"><div class="mt-h"><h3>${esc(c)}</h3><span class="pstack"><span class="fillp ${lv}">${a.std&&v!=null?pct(v/a.std)+' איוש':'אין תקן'}</span>${arrS(a.att,a.std)}</span></div>
-    <div class="mt-big ${lv}">${ratio(v,a.std)}</div><div class="mt-sub">מצבה (מל"מ) / תקן</div>
+    return `<div class="mt-card ${lv}" style="flex:${g} 1 ${g*210}px"><div class="mt-h"><h3>${esc(c)}</h3><button type="button" class="pstack mt-open" data-c="${esc(c)}" title="פתיחת התצוגה המלאה"><span class="fillp ${lv}">${a.std&&v!=null?pct(v/a.std)+' איוש':'אין תקן'}</span>${arrS(a.att,a.std)}</button></div>
+    <button type="button" class="mt-open" data-c="${esc(c)}" title="פתיחת התצוגה המלאה"><div class="mt-big ${lv}">${ratio(v,a.std)}</div><div class="mt-sub">מצבה (מל"מ) / תקן</div></button>
     ${ss.length>1?`<ul class="mt-st">${ss.map(s=>{const o=R.per[s.id],sv=k?o.alpon:null,sl=lvlOf(sv,s.std);return `<li data-id="${s.id}" class="${sl}"><span>${esc(s.n)}</span><b>${ratio(sv,s.std)}</b></li>`}).join('')}</ul>`:''}</div>`};
   const order=g=>[...g.filter(c=>!nst(c)),...g.filter(c=>nst(c)).sort((x,y)=>nst(x)-nst(y))];
   const used=new Set();let rows='';
@@ -731,6 +732,9 @@ function renderMt(){
   ${k?'':'<div class="banner">כדי לראות מצבה צריך להעלות את קובץ המל"מ בלשונית סיכום.</div>'}
   ${rows}</div>`;
   document.querySelectorAll('.mt-st li').forEach(li=>li.onclick=()=>openSt(li.dataset.id));
+  // a number on a cluster card opens the full view (yarin 2026-10-13): the station page when the cluster has one station, otherwise the summary filtered to that cluster
+  document.querySelectorAll('.mt-open').forEach(b=>b.onclick=()=>{const c=b.dataset.c;const ss=STD.stations.filter(s=>s.c===c&&!empty(s));
+    if(ss.length===1)return openSt(ss[0].id);fCluster=c;fOnly=false;setView('sum');window.scrollTo({top:0})});
 }
 
 // a station with no standard and nobody in any file has nothing to show
@@ -770,8 +774,31 @@ const noteRow=ref=>noteBox(textKey(ref),ref);
 const noteOf=k=>(NOTES[k]||{}).t||'';
 function paintNotes(){document.querySelectorAll('textarea.note').forEach(el=>{if(el===document.activeElement)return;const v=noteOf(el.dataset.k);if(el.value!==v)el.value=v})}
 try{Object.assign(NOTES,JSON.parse(localStorage.getItem('mz_notes')||'{}'))}catch(e){}
+// on the GitHub page (no Claude db) the notes live in dashboard_notes.json in the SharePoint folder, so every coordinator
+// sees what the others wrote (yarin 2026-10-13). Deletions are kept as empty entries so a merge does not bring them back.
+const SPN_FILE='dashboard_notes.json';let spDir=null;
+const spShare=()=>'u!'+btoa(unescape(encodeURIComponent(SP.folder))).replace(/=+$/,'').replace(/\//g,'_').replace(/\+/g,'-');
+async function spNotesGet(tok){const H={Authorization:'Bearer '+tok};
+  if(!spDir){const r=await fetch(`https://graph.microsoft.com/v1.0/shares/${spShare()}/driveItem`,{headers:H});if(!r.ok)throw new Error(r.status);const x=await r.json();spDir={d:x.parentReference.driveId,id:x.id}}
+  const u=`https://graph.microsoft.com/v1.0/drives/${spDir.d}/items/${spDir.id}:/${SPN_FILE}`;
+  const r=await fetch(u,{headers:H});if(r.status===404)return {u,etag:null,data:{}};if(!r.ok)throw new Error(r.status);
+  const it=await r.json();const c=await fetch(it['@microsoft.graph.downloadUrl']);let data={};try{data=await c.json()}catch(e){}
+  return {u,etag:it.eTag,data:data&&typeof data==='object'?data:{}}}
+function spNotesApply(data){for(const k in NOTES)delete NOTES[k];for(const [k,x] of Object.entries(data))if(x&&x.t)NOTES[k]={t:x.t,at:x.at};
+  try{localStorage.setItem('mz_notes',JSON.stringify(NOTES))}catch(e){}paintNotes()}
+async function spNotesPull(){if(!(SP&&window.msal))return;try{const tok=await spToken(false);if(!tok)return;spNotesApply((await spNotesGet(tok)).data)}catch(e){}}
+async function spNotesSave(k,ref,t,at){const tok=await spToken(true);if(!tok)return false;
+  for(let i=0;i<4;i++){const cur=await spNotesGet(tok);const data=cur.data;
+    if(!data[k]||!data[k].at||data[k].at<=at)data[k]={t,ref:String(ref),at};
+    const r=await fetch(cur.u+':/content',{method:'PUT',headers:{Authorization:'Bearer '+tok,'Content-Type':'application/json',...(cur.etag?{'If-Match':cur.etag}:{'If-None-Match':'*'})},body:JSON.stringify(data)});
+    if(r.ok){spNotesApply(data);return true}
+    if(r.status!==412&&r.status!==409)return false}                  // someone saved at the same moment: read again and merge
+  return false}
+if(SP&&window.msal){setTimeout(spNotesPull,1500);setInterval(spNotesPull,60*1000)}
 async function saveNote(k,ref,t){t=t.trim();
-  if(t)NOTES[k]={t,at:new Date().toISOString()};else delete NOTES[k];
+  const at=new Date().toISOString();
+  if(t)NOTES[k]={t,at};else delete NOTES[k];
+  if(!notesDb&&SP&&window.msal){try{return await spNotesSave(k,ref,t,at)}catch(e){return false}}
   if(notesDb){try{t?await notesDb.doc('notes/'+k).set({t,ref:String(ref),at:NOTES[k].at}):await notesDb.doc('notes/'+k).delete();return true}catch(e){return false}}
   try{localStorage.setItem('mz_notes',JSON.stringify(NOTES))}catch(e){}return true}
 document.addEventListener('change',async e=>{const el=e.target.closest&&e.target.closest('textarea.note');if(!el)return;el.classList.remove('err');const ok=await saveNote(el.dataset.k,el.dataset.ref,el.value);el.classList.toggle('err',!ok);el.title=ok?'':'ההערה לא נשמרה, נסי שוב'});
