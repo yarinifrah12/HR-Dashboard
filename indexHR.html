@@ -8,7 +8,7 @@
 :root{
   --bg:#f3f5f6; --surface:#ffffff; --surface2:#e9eef0; --fg:#18242a; --muted:#5b6b72; --line:#d3dcdf;
   --accent:#1f5f6b; --accent-fg:#ffffff;
-  --bad:#b4322a; --bad-bg:#fbe4e1; --warn:#9c7100; --warn-bg:#fdf0cf; --warn-fill:#f2b705; --good:#2b7a3d; --good-bg:#e1f2e4;
+  --bad:#b4322a; --bad-bg:#fbe4e1; --warn:#9c7100; --warn-bg:#fdf0cf; --warn-fill:#f2b705; --good:#2b7a3d; --good-bg:#e1f2e4; --over:#5c3317; --over-bg:#e3d3c4;
   --serious:#c4620f; --s1:#2a78d6; --s2:#eb6834; --s3:#1baf7a; --s4:#eda100; --s5:#e87ba4; --s6:#008300;
   --std:#4a5a86; --std-bg:#e6eaf5; --mlm:#7a4a8c; --mlm-bg:#f1e8f5; --ez:#1f6b74; --ez-bg:#e0f0f1; --att:#6b5a1f; --att-bg:#f4eedb;
   --f-body:"IBM Plex Sans Hebrew",Arial,"Segoe UI",sans-serif; --f-num:"Rubik","IBM Plex Sans Hebrew",Arial,sans-serif;
@@ -16,13 +16,13 @@
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
   --bg:#11181b; --surface:#1a2428; --surface2:#223036; --fg:#e4ecee; --muted:#9aaeb5; --line:#30424a;
   --accent:#5fb3c2; --accent-fg:#0d1416;
-  --bad:#ff8a7f; --bad-bg:#40201d; --warn:#f2c25b; --warn-bg:#3b3015; --warn-fill:#f2c25b; --good:#7fd08f; --good-bg:#1c3522;
+  --bad:#ff8a7f; --bad-bg:#40201d; --warn:#f2c25b; --warn-bg:#3b3015; --warn-fill:#f2c25b; --good:#7fd08f; --good-bg:#1c3522; --over:#d9a97f; --over-bg:#3a2717;
   --serious:#ff9f5a; --s1:#3987e5; --s2:#d95926; --s3:#199e70; --s4:#c98500; --s5:#d55181; --s6:#008300;
   --std:#a9b8e8; --std-bg:#252c40; --mlm:#d5a8e6; --mlm-bg:#33263a; --ez:#86d0d9; --ez-bg:#1c3336; --att:#e0cd8c; --att-bg:#36301c; color-scheme:dark}}
 :root[data-theme="dark"]{
   --bg:#11181b; --surface:#1a2428; --surface2:#223036; --fg:#e4ecee; --muted:#9aaeb5; --line:#30424a;
   --accent:#5fb3c2; --accent-fg:#0d1416;
-  --bad:#ff8a7f; --bad-bg:#40201d; --warn:#f2c25b; --warn-bg:#3b3015; --warn-fill:#f2c25b; --good:#7fd08f; --good-bg:#1c3522;
+  --bad:#ff8a7f; --bad-bg:#40201d; --warn:#f2c25b; --warn-bg:#3b3015; --warn-fill:#f2c25b; --good:#7fd08f; --good-bg:#1c3522; --over:#d9a97f; --over-bg:#3a2717;
   --serious:#ff9f5a; --s1:#3987e5; --s2:#d95926; --s3:#199e70; --s4:#c98500; --s5:#d55181; --s6:#008300;
   --std:#a9b8e8; --std-bg:#252c40; --mlm:#d5a8e6; --mlm-bg:#33263a; --ez:#86d0d9; --ez-bg:#1c3336; --att:#e0cd8c; --att-bg:#36301c; color-scheme:dark}
 *{box-sizing:border-box} [hidden]{display:none!important}
@@ -86,6 +86,24 @@ select{font:inherit;font-size:.85rem;background:var(--surface);color:var(--fg);b
 .mt-card.good{border-color:var(--good)} .mt-card.warn{border-color:var(--warn-fill)} .mt-card.bad{border-color:var(--bad)}
 .mt-h{display:flex;justify-content:space-between;align-items:baseline;gap:8px} .mt-h h3{margin:0;font-size:1.15rem}
 .mt-open{all:unset;cursor:pointer;display:block;border-radius:6px}.mt-open:hover{background:var(--surface2)}.mt-open:focus-visible{outline:3px solid var(--accent);outline-offset:2px}button.pstack.mt-open{display:flex}
+.tv{position:fixed;inset:0;z-index:50;background:var(--bg);padding:1.2vh 1.2vw;display:flex;flex-direction:column;gap:1.2vh;overflow:hidden}
+.tv[hidden]{display:none}
+.tv-h{display:flex;align-items:center;gap:2.2vw;flex-wrap:nowrap}
+.tv-logo svg{height:5vh;width:auto;color:var(--fg)}
+.tv-k{display:flex;flex-direction:column;line-height:1.05}.tv-k b{font-family:var(--f-num);font-size:3.6vh;font-variant-numeric:tabular-nums}.tv-k span{white-space:nowrap;font-size:1.5vh;color:var(--muted)}
+.tv-leg{display:flex;gap:.5vw;flex-wrap:nowrap;white-space:nowrap;font-size:1.6vh;font-weight:600}.tv-leg span{padding:.3vh .7vw;border-radius:999px}
+.tv-leg .good{background:var(--good-bg);color:var(--good)}.tv-leg .warn{background:var(--warn-bg);color:var(--warn)}.tv-leg .bad{background:var(--bad-bg);color:var(--bad)}
+.tv-time{white-space:nowrap;font-size:1.6vh;color:var(--muted);margin-inline-start:auto}
+.tv-btns{display:flex;gap:.5vw;white-space:nowrap}.tv-btns .btn{padding:.4vh .8vw;font-size:1.4vh}
+.tv-g{flex:1;min-height:0;display:grid}.tv-br{display:none}
+.tv-t{background:var(--surface);border:max(2px,calc(var(--u)*1.6)) solid var(--line);border-radius:calc(var(--u)*5);padding:calc(var(--u)*4) calc(var(--u)*7);display:flex;flex-direction:column;justify-content:space-between;min-width:0;min-height:0;overflow:hidden;cursor:pointer}
+.tv-t.good{border-color:var(--good);background:var(--good-bg)}.tv-t.over{border-color:var(--over);background:var(--over-bg)}.tv-p.over b{color:var(--over)}.tv-leg .over{background:var(--over-bg);color:var(--over)}.tv-t.warn{border-color:var(--warn);background:var(--warn-bg)}.tv-t.bad{border-color:var(--bad);background:var(--bad-bg)}
+.tv-n{font-weight:700;font-size:calc(var(--u)*14.5);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.15}
+.tv-r,.tv-p,.tv-a{display:flex;justify-content:space-between;align-items:baseline;gap:6px;white-space:nowrap;font-variant-numeric:tabular-nums;line-height:1.1}
+.tv-r{font-size:calc(var(--u)*11);color:var(--muted);margin-top:auto}.tv-r b{color:var(--fg);font-family:var(--f-num);font-size:calc(var(--u)*13)}
+.tv-p{font-size:calc(var(--u)*11.5);color:var(--muted);margin-top:auto}.tv-p b{font-family:var(--f-num);font-weight:800;font-size:calc(var(--u)*20)}
+.tv-p.good b{color:var(--good)}.tv-p.warn b{color:var(--warn)}.tv-p.bad b{color:var(--bad)}
+.tv-a{font-size:calc(var(--u)*11.5);color:var(--muted);margin-top:auto}.tv-a b{color:var(--fg);font-family:var(--f-num);font-size:calc(var(--u)*16)}
 .mt-big{font-family:var(--f-num);font-size:2rem;font-weight:700;font-variant-numeric:tabular-nums;line-height:1.1}
 .mt-big.good{color:var(--good)} .mt-big.warn{color:var(--warn)} .mt-big.bad{color:var(--bad)}
 .mt-sub{color:var(--muted);font-size:.8rem}
@@ -204,6 +222,7 @@ details summary{cursor:pointer;font-weight:600}
 
   <nav class="tabs" role="tablist">
     <button class="tab" role="tab" id="t-mt" type="button">מתכלל</button>
+    <button class="tab" role="tab" id="t-tv" type="button">מסך טלוויזיה</button>
     <button class="tab" role="tab" id="t-biz" type="button">ניתוח עסקי</button>
     <button class="tab" role="tab" id="t-sum" type="button">סיכום</button>
     <button class="tab" role="tab" id="t-exc" type="button">פערי רישומת</button>
@@ -213,6 +232,7 @@ details summary{cursor:pointer;font-weight:600}
   </nav>
 
   <section id="v-mt" hidden></section>
+  <section id="v-tv" class="tv" hidden></section>
   <section id="v-biz" hidden></section>
   <section id="v-sum" hidden></section>
   <section id="v-exc" hidden></section>
@@ -661,8 +681,8 @@ function status(s){
 
 // ---------- render ----------
 let view=load('mz_view','sum');let curSt=load('mz_st',STD.stations[0].id);let fCluster='',fOnly=false;
-function setView(v){view=v;save('mz_view',v);render()}
-$('#t-mt').onclick=()=>setView('mt');$('#t-biz').onclick=()=>setView('biz');$('#t-sum').onclick=()=>setView('sum');$('#t-exc').onclick=()=>setView('exc');$('#t-map').onclick=()=>setView('map');$('#t-std').onclick=()=>setView('std');
+function setView(v){view=v;if(v!=='tv')save('mz_view',v);else if(location.hash!=='#tv')try{history.replaceState(null,'','#tv')}catch(e){};render()}
+$('#t-mt').onclick=()=>setView('mt');$('#t-tv').onclick=()=>setView('tv');$('#t-biz').onclick=()=>setView('biz');$('#t-sum').onclick=()=>setView('sum');$('#t-exc').onclick=()=>setView('exc');$('#t-map').onclick=()=>setView('map');$('#t-std').onclick=()=>setView('std');
 const sel=$('#stSel');sel.innerHTML='<option value="">—</option>'+STD.stations.map(s=>`<option value="${s.id}">${esc(stLabel(s))}</option>`).join('');
 sel.onchange=()=>{if(sel.value){stF={prof:null,cat:null};curSt=sel.value;save('mz_st',curSt);setView('st')}};
 function openSt(id){stF={prof:null,cat:null};curSt=id;save('mz_st',id);setView('st');window.scrollTo({top:0})}
@@ -671,17 +691,17 @@ function render(){
   $('#sampleBanner').hidden=!sample;
   const lastAt=Math.max(0,...['alpon','clock','att'].map(k=>files[k]&&files[k].at||0));
   $('#asof').textContent=(sample?'נתוני דוגמה · ':'')+'תמונת מצב ל-'+new Date().toLocaleDateString('he-IL',{weekday:'long',day:'numeric',month:'numeric',year:'numeric'})+(!sample&&lastAt?' · עודכן '+new Date(lastAt).toLocaleString('he-IL',{day:'numeric',month:'numeric',hour:'2-digit',minute:'2-digit'}):'');
-  for(const v of ['mt','biz','sum','exc','map','std','st']){$('#v-'+v).hidden=view!==v}
+  for(const v of ['mt','tv','biz','sum','exc','map','std','st']){$('#v-'+v).hidden=view!==v}
   // the management view is shown on a wall screen: let it use the full width
-  document.querySelector('.wrap').classList.toggle('wide',view==='mt');
-  document.querySelector('.uploads').hidden=view==='mt'||view==='biz'||view==='std';$('#t-std').setAttribute('aria-selected',view==='std');$('#t-biz').setAttribute('aria-selected',view==='biz');$('#t-mt').setAttribute('aria-selected',view==='mt');
+  document.querySelector('.wrap').classList.toggle('wide',view==='mt');document.body.style.overflow=view==='tv'?'hidden':'';
+  document.querySelector('.uploads').hidden=view==='mt'||view==='biz'||view==='std';$('#t-std').setAttribute('aria-selected',view==='std');$('#t-biz').setAttribute('aria-selected',view==='biz');$('#t-mt').setAttribute('aria-selected',view==='mt');$('#t-tv').setAttribute('aria-selected',view==='tv');
   $('#t-sum').setAttribute('aria-selected',view==='sum');$('#t-exc').setAttribute('aria-selected',view==='exc');$('#t-map').setAttribute('aria-selected',view==='map');
   sel.value=view==='st'?curSt:'';
   const nEx=Object.values(R.exc).reduce((a,b)=>a+b.length,0);
   $('#t-exc').innerHTML='פערי רישומת'+(nEx?`<span class="cnt">${nEx}</span>`:'');
   const nUn=Object.keys(R.unSt).length+Object.keys(R.unRole).length;
   $('#t-map').innerHTML='התאמות'+(nUn?`<span class="cnt">${nUn}</span>`:'');
-  if(view==='mt')renderMt();else if(view==='biz')renderBiz();else if(view==='sum')renderSum();else if(view==='exc')renderExc();else if(view==='map')renderMap();else if(view==='std')renderStd();else renderSt();
+  if(view==='mt')renderMt();else if(view==='tv')renderTv();else if(view==='biz')renderBiz();else if(view==='sum')renderSum();else if(view==='exc')renderExc();else if(view==='map')renderMap();else if(view==='std')renderStd();else renderSt();
 }
 function tot(k){return STD.stations.reduce((a,s)=>a+R.per[s.id][k],0)}
 const cmp=(v,std)=>{if(v==null)return '';if(!std)return v>0?'t-bad':'';const f=v/std;return 't-'+lvlF(f)};
@@ -703,6 +723,57 @@ function clusterBar(c){const a=clusterAgg(c),k=actK();const v=k?a[k]:null;const 
   <div class="cbar-n"><span class="c-mlm">מצבה/תקן <b dir="ltr">${R.has.alpon?fmt(a.alpon):'—'}/${fmt(a.std)}</b></span><span class="c-att">נכחו <b dir="ltr">${R.has.att?fmt(a.att):'—'}/${fmt(a.std)}</b></span></div>${note?`<div class="cbar-note">${esc(note)}</div>`:''}</div>`}
 // מתכלל: one card per cluster for management, מצבה (מל"מ) / תקן with its stations listed underneath
 function lvlOf(v,std){if(v==null)return 'none';if(!std)return v>0?'bad':'none';const f=v/std;return lvlF(f)}
+// מסך טלוויזיה (yarin 2026-10-15): every cluster on one wall screen with no scrolling, only staffing % and arrival %.
+// Tile size is worked out from the screen size, so it fits any TV; the page opens straight into it with #tv in the address.
+function renderTv(){
+  const k=R.has.alpon?'alpon':null;const clusters=[...new Set(STD.stations.map(s=>s.c))];
+  const vis=clusters.filter(c=>{const a=clusterAgg(c);return a.std||a.alpon||a.clock||a.att});
+  // above 105% gets its own dark brown on the TV screen (yarin 2026-10-15)
+  const lvC=c=>{const a=clusterAgg(c),v=k?a.alpon:null;if(!a.std&&v)return 'nostd';const l=lvlOf(v,a.std);return l==='warn'&&v/a.std>1.05?'over':l};
+  const PINNED=[['קריה','גלי צהל'],['מטה','מרלוג','מלצרים'],['אשכול ה','אשכול ו','משטרה לכיש','משטרה נגב'],['בתי כלא','שבס']];
+  const pin=new Set(PINNED.flat());const used=new Set();const list=[];const take=cs=>cs.forEach(c=>{if(vis.includes(c)&&!used.has(c)){used.add(c);list.push(c)}});
+  // rows by staffing band (yarin 2026-10-15): no standard and under 70% on top, then 70%-90%, 90%-100%, above 100%;
+  // each band starts its own row; tiles run in numeric order from the lowest % to the highest
+  const fr=c=>{const x=clusterAgg(c);return x.std&&k?x.alpon/x.std:null};const hc=c=>clusterAgg(c).alpon;
+  const desc=a=>a.sort((x,y)=>(fr(x)??-1)-(fr(y)??-1)||hc(y)-hc(x));   // numeric order, lowest % first (yarin 2026-10-15)
+  const bands=[desc(vis.filter(c=>lvC(c)==='nostd')).concat(desc(vis.filter(c=>{const f=fr(c);return lvC(c)!=='nostd'&&f!=null&&f<0.7}))),
+    desc(vis.filter(c=>{const f=fr(c);return lvC(c)!=='nostd'&&f!=null&&f>=0.7&&f<0.9})),
+    desc(vis.filter(c=>{const f=fr(c);return lvC(c)!=='nostd'&&f!=null&&f>=0.9&&f<=1})),
+    desc(vis.filter(c=>{const f=fr(c);return lvC(c)!=='nostd'&&f!=null&&f>1}))];
+  bands.forEach(take);const rest=vis.filter(c=>!used.has(c));take(rest);if(rest.length)bands.push(rest);
+  const bandSizes=bands.map(b=>b.length).filter(Boolean);
+  const cnt={good:0,warn:0,over:0,bad:0,nostd:0};list.forEach(c=>{const l=lvC(c);if(cnt[l]!=null)cnt[l]++});
+  const T=STD.stations.reduce((a,s)=>a+s.std,0),Ts=STD.stations.filter(s=>s.std);
+  const M=k?Ts.reduce((a,s)=>a+R.per[s.id].alpon,0):null,A=R.has.att?Ts.reduce((a,s)=>a+R.per[s.id].att,0):null;
+  const lastAt=Math.max(0,...['alpon','clock','att'].map(x=>files[x]&&files[x].at||0));
+  const logo=(document.querySelector('.brand svg')||{}).outerHTML||'';
+  // tile format (yarin 2026-10-15): station name, תקן / מצבה, staffing %, arrival %
+  const tile=c=>{const a=clusterAgg(c),v=k?a.alpon:null,lv=lvC(c),cl=lv==='nostd'?'bad':lv;
+    return `<div class="tv-t ${cl}" data-c="${esc(c)}"><div class="tv-n">${esc(c)}</div>
+    <div class="tv-r"><span>תקן <b>${fmt(a.std)}</b></span><span>מצבה <b>${v==null?'—':fmt(v)}</b></span></div>
+    <div class="tv-p ${cl}"><span>איוש</span><b>${a.std&&v!=null?pct(v/a.std):'אין תקן'}</b></div>
+    <div class="tv-a"><span>הגעה</span><b>${R.has.att&&a.std?pct(a.att/a.std):'—'}</b></div></div>`};
+  $('#v-tv').innerHTML=`<div class="tv-h"><div class="tv-logo">${logo}</div>
+    <div class="tv-k"><b dir="ltr">${M==null?'—':fmt(M)}/${fmt(T)}</b><span>מצבה (מל"מ) / תקן</span></div>
+    <div class="tv-k"><b>${M==null||!T?'—':pct(M/T)}</b><span>איוש</span></div><div class="tv-k"><b>${A==null||!T?'—':pct(A/T)}</b><span>הגעה (הגיעו / תקן)</span></div>
+    <div class="tv-leg"><span class="bad">${cnt.bad} מתחת ל-70%</span>${cnt.nostd?`<span class="bad">${cnt.nostd} בלי תקן</span>`:''}<span class="warn">${cnt.warn} בין 70%-95%</span><span class="over">${cnt.over} מעל 105%</span><span class="good">${cnt.good} תקין</span></div>
+    <div class="tv-time">${lastAt?'עודכן '+new Date(lastAt).toLocaleString('he-IL',{day:'numeric',month:'numeric',hour:'2-digit',minute:'2-digit'}):''}</div>
+    <div class="tv-btns"><button type="button" class="btn ghost" id="tvFull">מסך מלא</button><button type="button" class="btn ghost" id="tvExit">יציאה</button></div></div>
+    <div class="tv-g" data-bands="${bandSizes.join(',')}">${bands.filter(b=>b.length).map(b=>b.map(tile).join('')+'<i class="tv-br"></i>').join('')}</div>`;
+  $('#tvExit').onclick=()=>{if(document.fullscreenElement)document.exitFullscreen().catch(()=>{});if(location.hash==='#tv')history.replaceState(null,'',location.pathname+location.search);setView('mt')};
+  $('#tvFull').onclick=()=>{const p=document.fullscreenElement?document.exitFullscreen():document.documentElement.requestFullscreen&&document.documentElement.requestFullscreen();if(p&&p.catch)p.catch(()=>{})};
+  document.querySelectorAll('.tv-t').forEach(t=>t.onclick=()=>{const ss=STD.stations.filter(s=>s.c===t.dataset.c&&!empty(s));if(ss.length===1)return openSt(ss[0].id);fCluster=t.dataset.c;fOnly=false;setView('sum')});
+  fitTv()}
+// choose columns so the tiles are as big as possible while all of them fit on the screen
+function fitTv(){const g=document.querySelector('#v-tv .tv-g');if(!g||view!=='tv')return;
+  const bands=(g.dataset.bands||'').split(',').map(Number).filter(Boolean);const n=bands.reduce((a,b)=>a+b,0);if(!n)return;
+  const W=g.clientWidth,H=g.clientHeight,gap=Math.max(6,Math.round(Math.min(W,H)*0.008)),ar=1.35;let best=null;
+  for(let c=1;c<=Math.min(n,6);c++){const r=bands.reduce((a,b)=>a+Math.ceil(b/c),0),w=(W-gap*(c-1))/c,h=(H-gap*(r-1))/r,u=Math.min(h,w/ar);if(!best||u>best.u)best={c,r,u,h}}
+  // at most 6 tiles per row (yarin 2026-10-15). A band break fills the rest of its row, so the next band starts on a new line
+  let i=0;g.querySelectorAll('.tv-br').forEach((br,bi)=>{const left=bands[bi]%best.c;br.style.gridColumn=left?`span ${best.c-left}`:'';br.style.display=left?'block':'none'});
+  g.style.gap=gap+'px';g.style.gridTemplateColumns=`repeat(${best.c},1fr)`;g.style.gridTemplateRows=`repeat(${best.r},1fr)`;g.style.setProperty('--u',(best.h/100)+'px')}
+window.addEventListener('resize',()=>fitTv());
+if(location.hash==='#tv')view='tv';
 function renderMt(){
   const k=R.has.alpon?'alpon':null;const clusters=[...new Set(STD.stations.map(s=>s.c))];
   const T=STD.stations.reduce((a,s)=>a+s.std,0),M=k?tot('alpon'):null,M2=k?STD.stations.filter(s=>s.std).reduce((a,s)=>a+R.per[s.id].alpon,0):null;
@@ -721,6 +792,11 @@ function renderMt(){
     ${ss.length>1?`<ul class="mt-st">${ss.map(s=>{const o=R.per[s.id],sv=k?o.alpon:null,sl=lvlOf(sv,s.std);return `<li data-id="${s.id}" class="${sl}"><span>${esc(s.n)}</span><b>${ratio(sv,s.std)}</b></li>`}).join('')}</ul>`:''}</div>`};
   const order=g=>[...g.filter(c=>!nst(c)),...g.filter(c=>nst(c)).sort((x,y)=>nst(x)-nst(y))];
   const used=new Set();let rows='';
+  // the row under 70% comes first, above the fixed groups (yarin 2026-10-15); a fixed group keeps its own row
+  const pinnedAll=new Set(PINNED.flat());
+  const badTop=order(vis.filter(c=>!pinnedAll.has(c)&&lvC(c)==='bad'));
+  if(badTop.length){badTop.forEach(c=>used.add(c));rows+=`<div class="mt-row-t bad">מתחת ל-70%</div><div class="mt-grid">${badTop.map(card).join('')}</div>`}
+  if(PINNED.some(g=>g.some(c=>vis.includes(c)))&&badTop.length)rows+='<div class="mt-row-t">קבוצות קבועות</div>';
   for(const g of PINNED){const m=g.filter(c=>vis.includes(c));if(!m.length)continue;m.forEach(c=>used.add(c));rows+=`<div class="mt-grid mt-pin">${m.map(card).join('')}</div>`}
   // exceptions first, healthy clusters last (yarin 2026-10-12)
   const LV=[['bad','מתחת ל-70%'],['nostd','בלי תקן'],['warn','בין 70% ל-95% או מעל 105%'],['good','באיוש תקין (95%-105%)'],['none','']];
