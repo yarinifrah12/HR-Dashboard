@@ -94,6 +94,7 @@ select{font:inherit;font-size:.85rem;background:var(--surface);color:var(--fg);b
 .tv-leg{display:flex;gap:.5vw;flex-wrap:nowrap;white-space:nowrap;font-size:1.6vh;font-weight:600}.tv-leg span{padding:.3vh .7vw;border-radius:999px}
 .tv-leg .good{background:var(--good-bg);color:var(--good)}.tv-leg .warn{background:var(--warn-bg);color:var(--warn)}.tv-leg .bad{background:var(--bad-bg);color:var(--bad)}
 .tv-time{white-space:nowrap;font-size:1.6vh;color:var(--muted);margin-inline-start:auto}
+.tv-time{display:flex;flex-direction:column;align-items:flex-end;gap:.3vh}.tv-sp-bad{background:var(--bad-bg);color:var(--bad);border:2px solid var(--bad);border-radius:6px;padding:.2vh .6vw;font:inherit;font-weight:700;white-space:nowrap;cursor:pointer}
 .tv-btns{display:flex;gap:.5vw;white-space:nowrap}.tv-btns .btn{padding:.4vh .8vw;font-size:1.4vh}
 .tv-g{flex:1;min-height:0;display:grid}.tv-br{display:none}
 .tv-t{background:var(--surface);border:max(2px,calc(var(--u)*1.6)) solid var(--line);border-radius:calc(var(--u)*5);padding:calc(var(--u)*3) calc(var(--u)*5);display:flex;flex-direction:column;justify-content:space-between;min-width:0;min-height:0;overflow:hidden;cursor:pointer}
@@ -500,19 +501,23 @@ $('#projBtn').onclick=()=>loadFromProject(true);
 // Microsoft work account, and checks again every 5 minutes so a wall screen follows the folder. A file uploaded by hand
 // still works and stays in that browser only. Settings come from window.SP_CONFIG {tenant, client, folder} in the page.
 const SP=window.SP_CONFIG&&SP_CONFIG.client&&SP_CONFIG.tenant&&SP_CONFIG.folder?SP_CONFIG:null;
-let spApp=null;
+let spApp=null;var spSeen={},spState={checked:null,need:false,busy:false};
 async function spToken(interactive){
   if(!spApp){spApp=new msal.PublicClientApplication({auth:{clientId:SP.client,authority:'https://login.microsoftonline.com/'+SP.tenant,redirectUri:location.origin+location.pathname},cache:{cacheLocation:'localStorage'}});
     if(spApp.initialize)await spApp.initialize();await spApp.handleRedirectPromise().catch(()=>null)}
   const req={scopes:['Files.ReadWrite.All']};const acc=spApp.getAllAccounts()[0];
-  if(acc){try{return (await spApp.acquireTokenSilent({...req,account:acc})).accessToken}catch(e){}}
+  if(acc){try{return (await spApp.acquireTokenSilent({...req,account:acc})).accessToken}catch(e){}
+    // the sign-in can lapse on a screen left on for a day; try once more quietly before asking to sign in again
+    try{return (await spApp.ssoSilent({...req,loginHint:acc.username})).accessToken}catch(e){}}
   if(!interactive)return null;
   const r=await spApp.loginPopup(req);return r.accessToken}
 async function loadFromSharePoint(interactive){
-  const el=$('#spStatus');
+  const el=$('#spStatus');if(spState.busy&&!interactive)return;spState.busy=true;
+  const tvNow=()=>{if(view==='tv')renderTv()};
   try{
     const tok=await spToken(interactive);
-    if(!tok){el.textContent='צריך להתחבר עם חשבון העבודה כדי לטעון מהשירפוינט.';$('#spBtn').hidden=false;return}
+    if(!tok){el.textContent='צריך להתחבר עם חשבון העבודה כדי לטעון מהשירפוינט.';$('#spBtn').hidden=false;spState.need=true;tvNow();return}
+    spState.need=false;
     $('#spBtn').hidden=true;el.textContent='טוען מהשירפוינט…';
     const g=async u=>{const r=await fetch(u,{headers:{Authorization:'Bearer '+tok}});if(!r.ok)throw new Error(r.status);return r};
     const share='u!'+btoa(unescape(encodeURIComponent(SP.folder))).replace(/=+$/,'').replace(/\//g,'_').replace(/\+/g,'-');
@@ -521,16 +526,21 @@ async function loadFromSharePoint(interactive){
     const found={};
     for(const it of list){if(found.alpon&&found.clock&&found.att)break;
       const at=Date.parse(it.lastModifiedDateTime);
+      // a file already read and unchanged since is not downloaded again
+      const seen=spSeen[it.id];if(seen&&seen.m===it.lastModifiedDateTime){if(seen.k&&!found[seen.k])found[seen.k]=true;continue}
       const buf=await (await fetch(it['@microsoft.graph.downloadUrl'])).arrayBuffer();let p;try{p=parseSheet(buf)}catch(x){continue}
-      const k=kindOf(p.headers);if(!k||found[k])continue;found[k]=true;
+      const k=kindOf(p.headers);spSeen[it.id]={m:it.lastModifiedDateTime,k};if(!k||found[k])continue;found[k]=true;
       const cur=files[k];if(cur&&cur.at>=at)continue;                 // a newer hand upload (or the same file) stays
       files[k]={...p,fname:it.name+' (שירפוינט)',cols:guessCols(k,p.headers),at};sample=false;persist(k);renderCols(k)}
     const n=['alpon','clock','att'].filter(k=>found[k]).length;
     el.textContent=n?`נטען מהשירפוינט (${n} קבצים) · נבדק ב-${new Date().toLocaleTimeString('he-IL',{hour:'2-digit',minute:'2-digit'})}`:'לא נמצאו בתיקייה קבצי מל"מ, איזיטיים או נוכחות.';
-    recompute();
-  }catch(e){el.textContent='הטעינה מהשירפוינט לא הצליחה. בדקי שיש לך גישה לתיקייה ונסי שוב.';$('#spBtn').hidden=false}}
+    spState.checked=Date.now();spState.err=false;recompute();
+  }catch(e){el.textContent='הטעינה מהשירפוינט לא הצליחה. בדקי שיש לך גישה לתיקייה ונסי שוב.';$('#spBtn').hidden=false;spState.err=true;tvNow()}
+  finally{spState.busy=false}}
+// the folder is checked every 2 minutes and whenever the page comes back into view (yarin 2026-10-15: the TV screen didn't follow new uploads)
 if(SP&&window.msal){$('#spRow').hidden=false;$('#spBtn').onclick=()=>loadFromSharePoint(true);
-  setTimeout(()=>loadFromSharePoint(false),400);setInterval(()=>loadFromSharePoint(false),5*60*1000)}
+  setTimeout(()=>loadFromSharePoint(false),400);setInterval(()=>loadFromSharePoint(false),2*60*1000);
+  document.addEventListener('visibilitychange',()=>{if(!document.hidden)loadFromSharePoint(false)})}
 // shared data (yarin 2026-10-12): whoever uploads a file stores it for the whole team, and every open screen (e.g. the CEO's) switches to it live.
 // The file goes to the artifact's asset store as the same trimmed JSON kept in the browser; db doc shared/<kind> points at the newest one.
 let sharedDb=null,assetsCap=null;const SHARED={};
@@ -773,9 +783,10 @@ function renderTv(){
     <div class="tv-k"><b dir="ltr">${M==null?'—':fmt(M)}/${fmt(T)}</b><span>מצבה (מל"מ) / תקן</span></div>
     <div class="tv-k"><b>${M==null||!T?'—':pct(M/T)}</b><span>איוש</span></div><div class="tv-k"><b>${A==null||!T?'—':pct(A/T)}</b><span>הגעה (הגיעו / תקן)</span></div>
     <div class="tv-leg"><span class="bad">${cnt.bad} מתחת ל-70%</span>${cnt.nostd?`<span class="bad">${cnt.nostd} בלי תקן</span>`:''}<span class="warn">${cnt.warn} בין 70%-95%</span><span class="over">${cnt.over} מעל 105%</span><span class="good">${cnt.good} תקין</span></div>
-    <div class="tv-time">${lastAt?'עודכן '+new Date(lastAt).toLocaleString('he-IL',{day:'numeric',month:'numeric',hour:'2-digit',minute:'2-digit'}):''}</div>
-    <div class="tv-btns"><button type="button" class="btn ghost" id="tvFull">מסך מלא</button><button type="button" class="btn ghost" id="tvExit">יציאה</button></div></div>
+    <div class="tv-time"><div>${lastAt?'עודכן '+new Date(lastAt).toLocaleString('he-IL',{day:'numeric',month:'numeric',hour:'2-digit',minute:'2-digit'}):''}</div>${(window.SP_CONFIG&&SP_CONFIG.client&&window.msal)?(spState.need||spState.err?`<button type="button" class="tv-sp-bad" id="tvSp">${spState.need?'צריך להתחבר מחדש':'הטעינה נכשלה'}, לחצי כאן</button>`:`<div>${spState.checked?'נבדק '+new Date(spState.checked).toLocaleTimeString('he-IL',{hour:'2-digit',minute:'2-digit'}):''}</div>`):''}</div>
+    <div class="tv-btns">${(window.SP_CONFIG&&SP_CONFIG.client&&window.msal)?'<button type="button" class="btn ghost" id="tvRef">רענון</button>':''}<button type="button" class="btn ghost" id="tvFull">מסך מלא</button><button type="button" class="btn ghost" id="tvExit">יציאה</button></div></div>
     <div class="tv-g" data-bands="${bandSizes.join(',')}">${bands.filter(b=>b.length).map(b=>b.map(tile).join('')+'<i class="tv-br"></i>').join('')}</div>`;
+  for(const id of ['tvSp','tvRef']){const b=document.getElementById(id);if(b)b.onclick=()=>loadFromSharePoint(true)}
   $('#tvExit').onclick=()=>{if(document.fullscreenElement)document.exitFullscreen().catch(()=>{});if(location.hash==='#tv')history.replaceState(null,'',location.pathname+location.search);setView('mt')};
   $('#tvFull').onclick=()=>{const p=document.fullscreenElement?document.exitFullscreen():document.documentElement.requestFullscreen&&document.documentElement.requestFullscreen();if(p&&p.catch)p.catch(()=>{})};
   document.querySelectorAll('.tv-t').forEach(t=>t.onclick=()=>{const ss=STD.stations.filter(s=>s.c===t.dataset.c&&!empty(s));if(ss.length===1)return openSt(ss[0].id);fCluster=t.dataset.c;fOnly=false;setView('sum')});
