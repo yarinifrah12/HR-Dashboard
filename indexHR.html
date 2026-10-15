@@ -96,14 +96,17 @@ select{font:inherit;font-size:.85rem;background:var(--surface);color:var(--fg);b
 .tv-time{white-space:nowrap;font-size:1.6vh;color:var(--muted);margin-inline-start:auto}
 .tv-btns{display:flex;gap:.5vw;white-space:nowrap}.tv-btns .btn{padding:.4vh .8vw;font-size:1.4vh}
 .tv-g{flex:1;min-height:0;display:grid}.tv-br{display:none}
-.tv-t{background:var(--surface);border:max(2px,calc(var(--u)*1.6)) solid var(--line);border-radius:calc(var(--u)*5);padding:calc(var(--u)*4) calc(var(--u)*7);display:flex;flex-direction:column;justify-content:space-between;min-width:0;min-height:0;overflow:hidden;cursor:pointer}
+.tv-t{background:var(--surface);border:max(2px,calc(var(--u)*1.6)) solid var(--line);border-radius:calc(var(--u)*5);padding:calc(var(--u)*3) calc(var(--u)*5);display:flex;flex-direction:column;justify-content:space-between;min-width:0;min-height:0;overflow:hidden;cursor:pointer}
 .tv-t.good{border-color:var(--good);background:var(--good-bg)}.tv-t.over{border-color:var(--over);background:var(--over-bg)}.tv-p.over b{color:var(--over)}.tv-leg .over{background:var(--over-bg);color:var(--over)}.tv-t.warn{border-color:var(--warn);background:var(--warn-bg)}.tv-t.bad{border-color:var(--bad);background:var(--bad-bg)}
-.tv-n{font-weight:700;font-size:calc(var(--u)*14.5);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.15}
-.tv-r,.tv-p,.tv-a{display:flex;justify-content:space-between;align-items:baseline;gap:6px;white-space:nowrap;font-variant-numeric:tabular-nums;line-height:1.1}
-.tv-r{font-size:calc(var(--u)*11);color:var(--muted);margin-top:auto}.tv-r b{color:var(--fg);font-family:var(--f-num);font-size:calc(var(--u)*13)}
-.tv-p{font-size:calc(var(--u)*11.5);color:var(--muted);margin-top:auto}.tv-p b{font-family:var(--f-num);font-weight:800;font-size:calc(var(--u)*20)}
-.tv-p.good b{color:var(--good)}.tv-p.warn b{color:var(--warn)}.tv-p.bad b{color:var(--bad)}
-.tv-a{font-size:calc(var(--u)*11.5);color:var(--muted);margin-top:auto}.tv-a b{color:var(--fg);font-family:var(--f-num);font-size:calc(var(--u)*16)}
+.tv-n{font-weight:800;font-size:calc(var(--u)*23);line-height:1.1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tv-m{display:flex;justify-content:space-between;align-items:baseline;gap:calc(var(--u)*3);white-space:nowrap}
+.tv-p,.tv-a{display:flex;align-items:baseline;gap:calc(var(--u)*3);line-height:1}
+.tv-p span,.tv-a span{font-size:calc(var(--u)*13);color:var(--muted)}
+.tv-p b{font-family:var(--f-num);font-weight:800;font-size:calc(var(--u)*47);font-variant-numeric:tabular-nums}
+.tv-p.good b{color:var(--good)}.tv-p.warn b{color:var(--warn)}.tv-p.bad b{color:var(--bad)}.tv-p.over b{color:var(--over)}
+.tv-p.tv-ns b{font-family:inherit;font-size:calc(var(--u)*34)}
+.tv-a b{font-family:var(--f-num);font-weight:800;font-size:calc(var(--u)*29);color:var(--fg);font-variant-numeric:tabular-nums}
+.tv-r{font-size:calc(var(--u)*15);color:var(--muted);white-space:nowrap;line-height:1.1}.tv-r b{color:var(--fg);font-family:var(--f-num);font-size:calc(var(--u)*18)}
 .mt-big{font-family:var(--f-num);font-size:2rem;font-weight:700;font-variant-numeric:tabular-nums;line-height:1.1}
 .mt-big.good{color:var(--good)} .mt-big.warn{color:var(--warn)} .mt-big.bad{color:var(--bad)}
 .mt-sub{color:var(--muted);font-size:.8rem}
@@ -738,8 +741,8 @@ function renderTv(){
   const desc=a=>a.sort((x,y)=>(fr(x)??-1)-(fr(y)??-1)||hc(y)-hc(x));   // numeric order, lowest % first (yarin 2026-10-15)
   const bands=[desc(vis.filter(c=>lvC(c)==='nostd')).concat(desc(vis.filter(c=>{const f=fr(c);return lvC(c)!=='nostd'&&f!=null&&f<0.7}))),
     desc(vis.filter(c=>{const f=fr(c);return lvC(c)!=='nostd'&&f!=null&&f>=0.7&&f<0.9})),
-    desc(vis.filter(c=>{const f=fr(c);return lvC(c)!=='nostd'&&f!=null&&f>=0.9&&f<=1})),
-    desc(vis.filter(c=>{const f=fr(c);return lvC(c)!=='nostd'&&f!=null&&f>1}))];
+    // from 90% up it is one run in numeric order, so the green row continues straight into the ones above 100% (yarin 2026-10-15)
+    desc(vis.filter(c=>{const f=fr(c);return lvC(c)!=='nostd'&&f!=null&&f>=0.9}))];
   bands.forEach(take);const rest=vis.filter(c=>!used.has(c));take(rest);if(rest.length)bands.push(rest);
   const bandSizes=bands.map(b=>b.length).filter(Boolean);
   const cnt={good:0,warn:0,over:0,bad:0,nostd:0};list.forEach(c=>{const l=lvC(c);if(cnt[l]!=null)cnt[l]++});
@@ -748,11 +751,11 @@ function renderTv(){
   const lastAt=Math.max(0,...['alpon','clock','att'].map(x=>files[x]&&files[x].at||0));
   const logo=(document.querySelector('.brand svg')||{}).outerHTML||'';
   // tile format (yarin 2026-10-15): station name, תקן / מצבה, staffing %, arrival %
-  const tile=c=>{const a=clusterAgg(c),v=k?a.alpon:null,lv=lvC(c),cl=lv==='nostd'?'bad':lv;
+  const tile=c=>{const a=clusterAgg(c),v=k?a.alpon:null,lv=lvC(c),cl=lv==='nostd'?'bad':lv,ok=a.std&&v!=null;
     return `<div class="tv-t ${cl}" data-c="${esc(c)}"><div class="tv-n">${esc(c)}</div>
-    <div class="tv-r"><span>תקן <b>${fmt(a.std)}</b></span><span>מצבה <b>${v==null?'—':fmt(v)}</b></span></div>
-    <div class="tv-p ${cl}"><span>איוש</span><b>${a.std&&v!=null?pct(v/a.std):'אין תקן'}</b></div>
-    <div class="tv-a"><span>הגעה</span><b>${R.has.att&&a.std?pct(a.att/a.std):'—'}</b></div></div>`};
+    <div class="tv-m"><div class="tv-p ${cl}${ok?'':' tv-ns'}"><b>${ok?pct(v/a.std):'אין תקן'}</b><span>איוש</span></div>
+    <div class="tv-a"><b>${R.has.att&&a.std?pct(a.att/a.std):'—'}</b><span>הגעה</span></div></div>
+    <div class="tv-r">תקן <b>${fmt(a.std)}</b> · מצבה <b>${v==null?'—':fmt(v)}</b></div></div>`};
   $('#v-tv').innerHTML=`<div class="tv-h"><div class="tv-logo">${logo}</div>
     <div class="tv-k"><b dir="ltr">${M==null?'—':fmt(M)}/${fmt(T)}</b><span>מצבה (מל"מ) / תקן</span></div>
     <div class="tv-k"><b>${M==null||!T?'—':pct(M/T)}</b><span>איוש</span></div><div class="tv-k"><b>${A==null||!T?'—':pct(A/T)}</b><span>הגעה (הגיעו / תקן)</span></div>
@@ -767,11 +770,11 @@ function renderTv(){
 // choose columns so the tiles are as big as possible while all of them fit on the screen
 function fitTv(){const g=document.querySelector('#v-tv .tv-g');if(!g||view!=='tv')return;
   const bands=(g.dataset.bands||'').split(',').map(Number).filter(Boolean);const n=bands.reduce((a,b)=>a+b,0);if(!n)return;
-  const W=g.clientWidth,H=g.clientHeight,gap=Math.max(6,Math.round(Math.min(W,H)*0.008)),ar=1.35;let best=null;
+  const W=g.clientWidth,H=g.clientHeight,gap=Math.max(5,Math.round(Math.min(W,H)*0.006)),ar=1.35;let best=null;
   for(let c=1;c<=Math.min(n,6);c++){const r=bands.reduce((a,b)=>a+Math.ceil(b/c),0),w=(W-gap*(c-1))/c,h=(H-gap*(r-1))/r,u=Math.min(h,w/ar);if(!best||u>best.u)best={c,r,u,h}}
   // at most 6 tiles per row (yarin 2026-10-15). A band break fills the rest of its row, so the next band starts on a new line
   let i=0;g.querySelectorAll('.tv-br').forEach((br,bi)=>{const left=bands[bi]%best.c;br.style.gridColumn=left?`span ${best.c-left}`:'';br.style.display=left?'block':'none'});
-  g.style.gap=gap+'px';g.style.gridTemplateColumns=`repeat(${best.c},1fr)`;g.style.gridTemplateRows=`repeat(${best.r},1fr)`;g.style.setProperty('--u',(best.h/100)+'px')}
+  g.style.gap=gap+'px';g.style.gridTemplateColumns=`repeat(${best.c},1fr)`;g.style.gridTemplateRows=`repeat(${best.r},1fr)`;g.style.setProperty('--u',(Math.min(best.h,((W-gap*(best.c-1))/best.c)/2.9)/100)+'px')}
 window.addEventListener('resize',()=>fitTv());
 if(location.hash==='#tv')view='tv';
 function renderMt(){
