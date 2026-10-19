@@ -501,7 +501,10 @@ $('#projBtn').onclick=()=>loadFromProject(true);
 // Microsoft work account, and checks again every 5 minutes so a wall screen follows the folder. A file uploaded by hand
 // still works and stays in that browser only. Settings come from window.SP_CONFIG {tenant, client, folder} in the page.
 const SP=window.SP_CONFIG&&SP_CONFIG.client&&SP_CONFIG.tenant&&SP_CONFIG.folder?SP_CONFIG:null;
-let spApp=null;var spSeen={},spState={checked:null,need:false,busy:false};
+let spApp=null;var spSeen={},spState={checked:null,need:false,busy:0};
+// nothing the wall screen waits on may hang forever (2026-10-19: the TV stopped checking at 07:31 with no error)
+const spLimit=(pr,ms)=>Promise.race([pr,new Promise((_,j)=>setTimeout(()=>j(new Error('timeout')),ms))]);
+const spFetch=(u,o={})=>{const c=new AbortController();const t=setTimeout(()=>c.abort(),60000);return fetch(u,{...o,signal:c.signal}).finally(()=>clearTimeout(t))};
 async function spToken(interactive){
   if(!spApp){spApp=new msal.PublicClientApplication({auth:{clientId:SP.client,authority:'https://login.microsoftonline.com/'+SP.tenant,redirectUri:location.origin+location.pathname},cache:{cacheLocation:'localStorage'}});
     if(spApp.initialize)await spApp.initialize();await spApp.handleRedirectPromise().catch(()=>null)}
@@ -512,14 +515,14 @@ async function spToken(interactive){
   if(!interactive)return null;
   const r=await spApp.loginPopup(req);return r.accessToken}
 async function loadFromSharePoint(interactive){
-  const el=$('#spStatus');if(spState.busy&&!interactive)return;spState.busy=true;
+  const el=$('#spStatus');if(spState.busy&&Date.now()-spState.busy<3*60*1000&&!interactive)return;spState.busy=Date.now();
   const tvNow=()=>{if(view==='tv')renderTv()};
   try{
-    const tok=await spToken(interactive);
+    const tok=interactive?await spToken(true):await spLimit(spToken(false),45000).catch(()=>null);
     if(!tok){el.textContent='צריך להתחבר עם חשבון העבודה כדי לטעון מהשירפוינט.';$('#spBtn').hidden=false;spState.need=true;tvNow();return}
     spState.need=false;
     $('#spBtn').hidden=true;el.textContent='טוען מהשירפוינט…';
-    const g=async u=>{const r=await fetch(u,{headers:{Authorization:'Bearer '+tok}});if(!r.ok)throw new Error(r.status);return r};
+    const g=async u=>{const r=await spFetch(u,{headers:{Authorization:'Bearer '+tok}});if(!r.ok)throw new Error(r.status);return r};
     const share='u!'+btoa(unescape(encodeURIComponent(SP.folder))).replace(/=+$/,'').replace(/\//g,'_').replace(/\+/g,'-');
     const list=(await (await g(`https://graph.microsoft.com/v1.0/shares/${share}/driveItem/children?$top=200`)).json()).value
       .filter(x=>x.file&&/\.(xlsx|xls|csv)$/i.test(x.name)).sort((a,b)=>b.lastModifiedDateTime.localeCompare(a.lastModifiedDateTime));
@@ -528,7 +531,7 @@ async function loadFromSharePoint(interactive){
       const at=Date.parse(it.lastModifiedDateTime);
       // a file already read and unchanged since is not downloaded again
       const seen=spSeen[it.id];if(seen&&seen.m===it.lastModifiedDateTime){if(seen.k&&!found[seen.k])found[seen.k]=true;continue}
-      const buf=await (await fetch(it['@microsoft.graph.downloadUrl'])).arrayBuffer();let p;try{p=parseSheet(buf)}catch(x){continue}
+      const buf=await (await spFetch(it['@microsoft.graph.downloadUrl'])).arrayBuffer();let p;try{p=parseSheet(buf)}catch(x){continue}
       const k=kindOf(p.headers);spSeen[it.id]={m:it.lastModifiedDateTime,k};if(!k||found[k])continue;found[k]=true;
       const cur=files[k];if(cur&&cur.at>=at)continue;                 // a newer hand upload (or the same file) stays
       files[k]={...p,fname:it.name+' (שירפוינט)',cols:guessCols(k,p.headers),at};sample=false;persist(k);renderCols(k)}
@@ -536,11 +539,13 @@ async function loadFromSharePoint(interactive){
     el.textContent=n?`נטען מהשירפוינט (${n} קבצים) · נבדק ב-${new Date().toLocaleTimeString('he-IL',{hour:'2-digit',minute:'2-digit'})}`:'לא נמצאו בתיקייה קבצי מל"מ, איזיטיים או נוכחות.';
     spState.checked=Date.now();spState.err=false;recompute();
   }catch(e){el.textContent='הטעינה מהשירפוינט לא הצליחה. בדקי שיש לך גישה לתיקייה ונסי שוב.';$('#spBtn').hidden=false;spState.err=true;tvNow()}
-  finally{spState.busy=false}}
+  finally{spState.busy=0}}
 // the folder is checked every 2 minutes and whenever the page comes back into view (yarin 2026-10-15: the TV screen didn't follow new uploads)
 if(SP&&window.msal){$('#spRow').hidden=false;$('#spBtn').onclick=()=>loadFromSharePoint(true);
   setTimeout(()=>loadFromSharePoint(false),400);setInterval(()=>loadFromSharePoint(false),2*60*1000);
-  document.addEventListener('visibilitychange',()=>{if(!document.hidden)loadFromSharePoint(false)})}
+  document.addEventListener('visibilitychange',()=>{if(!document.hidden)loadFromSharePoint(false)});
+  // watchdog for the wall screen: if no check has succeeded for 15 minutes, reload the page (uploaded files stay in the browser)
+  const spBoot=Date.now();setInterval(()=>{const last=spState.checked||spBoot;if(view==='tv'&&!spState.need&&Date.now()-last>15*60*1000){location.hash='tv';location.reload()}},60*1000)}
 // shared data (yarin 2026-10-12): whoever uploads a file stores it for the whole team, and every open screen (e.g. the CEO's) switches to it live.
 // The file goes to the artifact's asset store as the same trimmed JSON kept in the browser; db doc shared/<kind> points at the newest one.
 let sharedDb=null,assetsCap=null;const SHARED={};
@@ -778,7 +783,7 @@ function renderTv(){
     return `<div class="tv-t ${cl}" data-c="${esc(c)}"><div class="tv-n">${esc(c)}</div>
     <div class="tv-m"><div class="tv-p ${cl}${ok?'':' tv-ns'}"><b>${ok?pct(v/a.std):'אין תקן'}</b><span>איוש</span></div>
     <div class="tv-a"><b>${R.has.att&&a.std?pct(a.att/a.std):'—'}</b><span>הגעה</span></div></div>
-    <div class="tv-r">תקן <b>${fmt(a.std)}</b> · מצבה <b>${v==null?'—':fmt(v)}</b></div></div>`};
+    <div class="tv-r">תקן <b>${fmt(a.std)}</b> · מצבה <b>${v==null?'—':fmt(v)}</b>${R.has.att?` · הגיעו <b>${fmt(a.att)}</b>`:''}</div></div>`};
   $('#v-tv').innerHTML=`<div class="tv-h"><div class="tv-logo">${logo}</div>
     <div class="tv-k"><b dir="ltr">${M==null?'—':fmt(M)}/${fmt(T)}</b><span>מצבה (מל"מ) / תקן</span></div>
     <div class="tv-k"><b>${M==null||!T?'—':pct(M/T)}</b><span>איוש</span></div><div class="tv-k"><b>${A==null||!T?'—':pct(A/T)}</b><span>הגעה (הגיעו / תקן)</span></div>
