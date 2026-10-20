@@ -381,6 +381,8 @@ const UNIT={};for(const src of [UN.units,UN.clock])for(const [raw,[c,n,p]] of Ob
 const roleIdx={};Object.entries(STD.map).forEach(([r,p])=>roleIdx[norm(r)]=p);STD.profs.forEach(p=>roleIdx[norm(p)]=p);
 
 let aliases=load('mz_aliases',{});   // normalized raw station -> station id | '__ignore'
+// a saved choice that the page now makes by itself is dropped, so the saved list only holds real exceptions (yarin 2026-10-19)
+{let ch=false;for(const [k,v] of Object.entries(aliases))if(v!=='__ignore'&&((UNIT[k]&&UNIT[k].id===v)||stIdx[k]===v)){delete aliases[k];ch=true}if(ch)save('mz_aliases',aliases)}
 let roleMap=load('mz_roles',{});     // normalized raw role -> profession
 let colPrefs=load('mz_cols',{});
 
@@ -884,20 +886,34 @@ function paintNotes(){document.querySelectorAll('textarea.note').forEach(el=>{if
 try{Object.assign(NOTES,JSON.parse(localStorage.getItem('mz_notes')||'{}'))}catch(e){}
 // on the GitHub page (no Claude db) the notes live in dashboard_notes.json in the SharePoint folder, so every coordinator
 // sees what the others wrote (yarin 2026-10-13). Deletions are kept as empty entries so a merge does not bring them back.
-const SPN_FILE='dashboard_notes.json';let spDir=null;
+const SPN_FILE='dashboard_notes.json';let spDir=null,spNotesBak=null;
 const spShare=()=>'u!'+btoa(unescape(encodeURIComponent(SP.folder))).replace(/=+$/,'').replace(/\//g,'_').replace(/\+/g,'-');
 async function spNotesGet(tok){const H={Authorization:'Bearer '+tok};
   if(!spDir){const r=await fetch(`https://graph.microsoft.com/v1.0/shares/${spShare()}/driveItem`,{headers:H});if(!r.ok)throw new Error(r.status);const x=await r.json();spDir={d:x.parentReference.driveId,id:x.id}}
   const u=`https://graph.microsoft.com/v1.0/drives/${spDir.d}/items/${spDir.id}:/${SPN_FILE}`;
   const r=await fetch(u,{headers:H});if(r.status===404)return {u,etag:null,data:{}};if(!r.ok)throw new Error(r.status);
-  const it=await r.json();const c=await fetch(it['@microsoft.graph.downloadUrl']);let data={};try{data=await c.json()}catch(e){}
-  return {u,etag:it.eTag,data:data&&typeof data==='object'?data:{}}}
-function spNotesApply(data){for(const k in NOTES)delete NOTES[k];for(const [k,x] of Object.entries(data))if(x&&x.t)NOTES[k]={t:x.t,at:x.at};
+  // a failed or unreadable download must never look like an empty file, or the next save would overwrite everyone's notes (2026-10-20)
+  const it=await r.json();const c=await fetch(it['@microsoft.graph.downloadUrl']);if(!c.ok)throw new Error('download '+c.status);
+  const data=await c.json();if(!data||typeof data!=='object'||Array.isArray(data))throw new Error('bad notes file');
+  return {u,etag:it.eTag,data}}
+function spNotesApply(data){for(const k in NOTES)delete NOTES[k];for(const [k,x] of Object.entries(data))if(x&&x.t)NOTES[k]={t:x.t,at:x.at,ref:x.ref};
   try{localStorage.setItem('mz_notes',JSON.stringify(NOTES))}catch(e){}paintNotes()}
-async function spNotesPull(){if(!(SP&&window.msal))return;try{const tok=await spToken(false);if(!tok)return;spNotesApply((await spNotesGet(tok)).data)}catch(e){}}
+// the first read also writes back notes this browser still remembers but the file lost (2026-10-20 recovery)
+let spHealed=false;
+async function spNotesPull(){if(!(SP&&window.msal))return;try{const tok=await spToken(false);if(!tok)return;const cur=await spNotesGet(tok);
+  if(!spHealed){spHealed=true;const lost=Object.entries(NOTES).filter(([k,x])=>x&&x.t&&!cur.data[k]);
+    if(lost.length){const data={...cur.data};for(const [k,x] of lost)data[k]={t:x.t,ref:x.ref||k.replace(/^e/,''),at:x.at||new Date().toISOString()};
+      const r=await fetch(cur.u+':/content',{method:'PUT',headers:{Authorization:'Bearer '+tok,'Content-Type':'application/json',...(cur.etag?{'If-Match':cur.etag}:{'If-None-Match':'*'})},body:JSON.stringify(data)});
+      if(r.ok)return spNotesApply(data);spHealed=false;return}}
+  spNotesApply(cur.data)}catch(e){}}
 async function spNotesSave(k,ref,t,at){const tok=await spToken(true);if(!tok)return false;
   for(let i=0;i<4;i++){const cur=await spNotesGet(tok);const data=cur.data;
+    // notes this browser already knows but the file lacks are written back too, so a lost file heals itself
+    for(const [kk,x] of Object.entries(NOTES))if(kk!==k&&x&&x.t&&!data[kk])data[kk]={t:x.t,ref:x.ref||kk.replace(/^e/,''),at:x.at};
     if(!data[k]||!data[k].at||data[k].at<=at)data[k]={t,ref:String(ref),at};
+    // one copy of the file per day, kept next to it (only created if that day's copy doesn't exist yet)
+    if(Object.keys(cur.data).length){const day=new Date().toISOString().slice(0,10);if(spNotesBak!==day){spNotesBak=day;
+      fetch(cur.u.replace(SPN_FILE,'dashboard_notes_'+day+'.json')+':/content',{method:'PUT',headers:{Authorization:'Bearer '+tok,'Content-Type':'application/json','If-None-Match':'*'},body:JSON.stringify(cur.data)}).catch(()=>{})}}
     const r=await fetch(cur.u+':/content',{method:'PUT',headers:{Authorization:'Bearer '+tok,'Content-Type':'application/json',...(cur.etag?{'If-Match':cur.etag}:{'If-None-Match':'*'})},body:JSON.stringify(data)});
     if(r.ok){spNotesApply(data);return true}
     if(r.status!==412&&r.status!==409)return false}                  // someone saved at the same moment: read again and merge
