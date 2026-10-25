@@ -107,6 +107,7 @@ select{font:inherit;font-size:.85rem;background:var(--surface);color:var(--fg);b
 .tv-p.good b{color:var(--good)}.tv-p.warn b{color:var(--warn)}.tv-p.bad b{color:var(--bad)}.tv-p.over b{color:var(--over)}
 .tv-p.tv-ns b{font-family:inherit;font-size:calc(var(--u)*34)}
 .tv-a b{font-family:var(--f-num);font-weight:800;font-size:calc(var(--u)*29);color:var(--fg);font-variant-numeric:tabular-nums}
+.tv-a.bad b{color:var(--bad)}.tv-a.warn b{color:var(--warn)}.tv-a.good b{color:var(--good)}
 .tv-r{font-size:calc(var(--u)*15);color:var(--muted);white-space:nowrap;line-height:1.1}.tv-r b{color:var(--fg);font-family:var(--f-num);font-size:calc(var(--u)*18)}
 .mt-big{font-family:var(--f-num);font-size:2rem;font-weight:700;font-variant-numeric:tabular-nums;line-height:1.1}
 .mt-big.good{color:var(--good)} .mt-big.warn{color:var(--warn)} .mt-big.bad{color:var(--bad)}
@@ -758,6 +759,8 @@ function clusterBar(c){const a=clusterAgg(c),k=actK();const v=k?a[k]:null;const 
 function lvlOf(v,std){if(v==null)return 'none';if(!std)return v>0?'bad':'none';const f=v/std;return lvlF(f)}
 // מסך טלוויזיה (yarin 2026-10-15): every cluster on one wall screen with no scrolling, only staffing % and arrival %.
 // Tile size is worked out from the screen size, so it fits any TV; the page opens straight into it with #tv in the address.
+// arrival colors on the TV (yarin 2026-10-25): under 80% red, 80-84% yellow, 85%-100% green, above 100% yellow; judged on the shown whole percent
+const arrLv=r=>{const p=Math.round(r*100);return p<80?'bad':p<85?'warn':p<=100?'good':'warn'};
 function renderTv(){
   const k=R.has.alpon?'alpon':null;const clusters=[...new Set(STD.stations.map(s=>s.c))];
   const vis=clusters.filter(c=>{const a=clusterAgg(c);return a.std||a.alpon||a.clock||a.att});
@@ -784,7 +787,7 @@ function renderTv(){
   const tile=c=>{const a=clusterAgg(c),v=k?a.alpon:null,lv=lvC(c),cl=lv==='nostd'?'bad':lv,ok=a.std&&v!=null;
     return `<div class="tv-t ${cl}" data-c="${esc(c)}"><div class="tv-n">${esc(c)}</div>
     <div class="tv-m"><div class="tv-p ${cl}${ok?'':' tv-ns'}"><b>${ok?pct(v/a.std):'אין תקן'}</b><span>איוש</span></div>
-    <div class="tv-a"><b>${R.has.att&&a.std?pct(a.att/a.std):'—'}</b><span>הגעה</span></div></div>
+    <div class="tv-a ${R.has.att&&a.std?arrLv(a.att/a.std):''}"><b>${R.has.att&&a.std?pct(a.att/a.std):'—'}</b><span>הגעה</span></div></div>
     <div class="tv-r">תקן <b>${fmt(a.std)}</b> · מצבה <b>${v==null?'—':fmt(v)}</b>${R.has.att?` · הגיעו <b>${fmt(a.att)}</b>`:''}</div></div>`};
   $('#v-tv').innerHTML=`<div class="tv-h"><div class="tv-logo">${logo}</div>
     <div class="tv-k"><b dir="ltr">${M==null?'—':fmt(M)}/${fmt(T)}</b><span>מצבה (מל"מ) / תקן</span></div>
@@ -896,15 +899,20 @@ async function spNotesGet(tok){const H={Authorization:'Bearer '+tok};
   const it=await r.json();const c=await fetch(it['@microsoft.graph.downloadUrl']);if(!c.ok)throw new Error('download '+c.status);
   const data=await c.json();if(!data||typeof data!=='object'||Array.isArray(data))throw new Error('bad notes file');
   return {u,etag:it.eTag,data}}
+// a note that could not reach SharePoint waits in this browser and is sent again on every check (2026-10-20: a day of notes never reached the file)
+const spPend=()=>load('mz_notes_pending',{});
 function spNotesApply(data){for(const k in NOTES)delete NOTES[k];for(const [k,x] of Object.entries(data))if(x&&x.t)NOTES[k]={t:x.t,at:x.at,ref:x.ref};
+  for(const [k,x] of Object.entries(spPend())){if(x.t)NOTES[k]={t:x.t,at:x.at,ref:x.ref};else delete NOTES[k]}
   try{localStorage.setItem('mz_notes',JSON.stringify(NOTES))}catch(e){}paintNotes()}
 // the first read also writes back notes this browser still remembers but the file lost (2026-10-20 recovery)
 let spHealed=false;
 async function spNotesPull(){if(!(SP&&window.msal))return;try{const tok=await spToken(false);if(!tok)return;const cur=await spNotesGet(tok);
-  if(!spHealed){spHealed=true;const lost=Object.entries(NOTES).filter(([k,x])=>x&&x.t&&!cur.data[k]);
-    if(lost.length){const data={...cur.data};for(const [k,x] of lost)data[k]={t:x.t,ref:x.ref||k.replace(/^e/,''),at:x.at||new Date().toISOString()};
+  const pend=Object.entries(spPend()).filter(([k,x])=>!cur.data[k]||!cur.data[k].at||cur.data[k].at<=x.at);
+  if(!spHealed||pend.length){spHealed=true;const lost=Object.entries(NOTES).filter(([k,x])=>x&&x.t&&!cur.data[k]);
+    if(lost.length||pend.length){const data={...cur.data};for(const [k,x] of lost)data[k]={t:x.t,ref:x.ref||k.replace(/^e/,''),at:x.at||new Date().toISOString()};
+      for(const [k,x] of pend)data[k]={t:x.t,ref:x.ref,at:x.at};
       const r=await fetch(cur.u+':/content',{method:'PUT',headers:{Authorization:'Bearer '+tok,'Content-Type':'application/json',...(cur.etag?{'If-Match':cur.etag}:{'If-None-Match':'*'})},body:JSON.stringify(data)});
-      if(r.ok)return spNotesApply(data);spHealed=false;return}}
+      if(r.ok){save('mz_notes_pending',{});return spNotesApply(data)}spHealed=false;return}}
   spNotesApply(cur.data)}catch(e){}}
 async function spNotesSave(k,ref,t,at){const tok=await spToken(true);if(!tok)return false;
   for(let i=0;i<4;i++){const cur=await spNotesGet(tok);const data=cur.data;
@@ -922,7 +930,8 @@ if(SP&&window.msal){setTimeout(spNotesPull,1500);setInterval(spNotesPull,60*1000
 async function saveNote(k,ref,t){t=t.trim();
   const at=new Date().toISOString();
   if(t)NOTES[k]={t,at};else delete NOTES[k];
-  if(!notesDb&&SP&&window.msal){try{return await spNotesSave(k,ref,t,at)}catch(e){return false}}
+  if(!notesDb&&SP&&window.msal){let ok=false;try{ok=await spNotesSave(k,ref,t,at)}catch(e){}
+    const pd=spPend();if(ok)delete pd[k];else pd[k]={t,ref:String(ref),at};save('mz_notes_pending',pd);if(t&&NOTES[k])NOTES[k].ref=String(ref);return ok}
   if(notesDb){try{t?await notesDb.doc('notes/'+k).set({t,ref:String(ref),at:NOTES[k].at}):await notesDb.doc('notes/'+k).delete();return true}catch(e){return false}}
   try{localStorage.setItem('mz_notes',JSON.stringify(NOTES))}catch(e){}return true}
 document.addEventListener('change',async e=>{const el=e.target.closest&&e.target.closest('textarea.note');if(!el)return;el.classList.remove('err');const ok=await saveNote(el.dataset.k,el.dataset.ref,el.value);el.classList.toggle('err',!ok);el.title=ok?'':'ההערה לא נשמרה, נסי שוב'});
