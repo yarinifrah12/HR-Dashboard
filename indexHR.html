@@ -766,9 +766,10 @@ function lvlOf(v,std){if(v==null)return 'none';if(!std)return v>0?'bad':'none';c
 const arrLv=r=>{const p=Math.round(r*100);return p<80?'bad':p<85?'warn':p<=100?'good':'warn'};
 function renderTv(){
   const k=R.has.alpon?'alpon':null;const clusters=[...new Set(STD.stations.map(s=>s.c))];
-  const vis=clusters.filter(c=>{const a=clusterAgg(c);return a.std||a.alpon||a.clock||a.att});
+  const vis=clusters.filter(c=>{const a=clusterAgg(c);return c==='ללא תחנה'||a.std||a.alpon||a.clock||a.att});
+  // "ללא תחנה" is shown and counted with the stations without a standard (yarin 2026-10-28)
   // above 105% gets its own dark brown on the TV screen (yarin 2026-10-15)
-  const lvC=c=>{const a=clusterAgg(c),v=k?a.alpon:null;if(!a.std&&v)return 'nostd';const l=lvlOf(v,a.std);return l==='warn'&&v/a.std>1.05?'over':l};
+  const lvC=c=>{const a=clusterAgg(c),v=k?a.alpon:null;if(c==='ללא תחנה'||!a.std&&v)return 'nostd';const l=lvlOf(v,a.std);return l==='warn'&&v/a.std>1.05?'over':l};
   const PINNED=[['קריה','גלי צהל'],['מטה','מרלוג','מלצרים'],['אשכול ה','אשכול ו','משטרה לכיש','משטרה נגב'],['בתי כלא','שבס']];
   const pin=new Set(PINNED.flat());const used=new Set();const list=[];const take=cs=>cs.forEach(c=>{if(vis.includes(c)&&!used.has(c)){used.add(c);list.push(c)}});
   // rows by staffing band (yarin 2026-10-15): no standard and under 70% on top, then 70%-90%, 90%-100%, above 100%;
@@ -787,11 +788,19 @@ function renderTv(){
   const lastAt=Math.max(0,...['alpon','clock','att'].map(x=>files[x]&&files[x].at||0));
   const logo=(document.querySelector('.brand svg')||{}).outerHTML||'';
   // tile format (yarin 2026-10-15): station name, תקן / מצבה, staffing %, arrival %
+  // people only in the clock (e.g. its "זמני" department) have no מצבה, so such a tile also shows בפועל (yarin 2026-10-28)
   const tile=c=>{const a=clusterAgg(c),v=k?a.alpon:null,lv=lvC(c),cl=lv==='nostd'?'bad':lv,ok=a.std&&v!=null;
+    // "ללא תחנה" (yarin 2026-10-28): how many are assigned to the clock's "זמני" department, and how many of them arrived
+    if(c==='ללא תחנה'){const ids=new Set(STD.stations.filter(s=>s.c===c).map(s=>s.id));let n=0,m=0;
+      for(const p of R.people.values())if(p.in_clock&&(ids.has(p.stc_own)||ids.has(p.st_clock))){n++;if(p.in_att)m++}
+      return `<div class="tv-t bad" data-c="${esc(c)}"><div class="tv-n">${esc(c)}</div>
+    <div class="tv-m"><div class="tv-p"><b>${fmt(n)}</b><span>משויכים לזמני</span></div>
+    <div class="tv-a"><b>${R.has.att?fmt(m):'—'}</b><span>הגיעו</span></div></div>
+    <div class="tv-r">משויכים לזמני <b>${fmt(n)}</b>${R.has.att?` · הגיעו <b>${fmt(m)}</b>`:''}</div></div>`}
     return `<div class="tv-t ${cl}" data-c="${esc(c)}"><div class="tv-n">${esc(c)}</div>
     <div class="tv-m"><div class="tv-p ${cl}${ok?'':' tv-ns'}"><b>${ok?pct(v/a.std):'אין תקן'}</b><span>איוש</span></div>
     <div class="tv-a ${R.has.att&&a.std?arrLv(a.att/a.std):''}"><b>${R.has.att&&a.std?pct(a.att/a.std):'—'}</b><span>הגעה</span></div></div>
-    <div class="tv-r">תקן <b>${fmt(a.std)}</b> · מצבה <b>${v==null?'—':fmt(v)}</b>${R.has.att?` · הגיעו <b>${fmt(a.att)}</b>`:''}</div></div>`};
+    <div class="tv-r">תקן <b>${fmt(a.std)}</b> · מצבה <b>${v==null?'—':fmt(v)}</b>${R.has.clock&&!a.alpon&&a.clock?` · בפועל <b>${fmt(a.clock)}</b>`:''}${R.has.att?` · הגיעו <b>${fmt(a.att)}</b>`:''}</div></div>`};
   $('#v-tv').innerHTML=`<div class="tv-h"><div class="tv-logo">${logo}</div>
     <div class="tv-k"><b dir="ltr">${M==null?'—':fmt(M)}/${fmt(T)}</b><span>מצבה (מל"מ) / תקן</span></div>
     <div class="tv-k"><b>${M==null||!T?'—':pct(M/T)}</b><span>איוש</span></div><div class="tv-k"><b>${A==null||!T?'—':pct(A/T)}</b><span>הגעה (הגיעו / תקן)</span></div>
