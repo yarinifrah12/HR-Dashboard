@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="he" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<html lang="he" dir="rtl"><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-VK+0dGuEKG03fFMktSTVTpPmQGl6cnCwIalNVGZj0Wk=' 'sha256-BMw87LM356ih8pq8v6e1jyX/x/JaYciEHR6oZ6w3nK0=' 'sha256-0gYfulAi7nHaRuZClQ4j+bqJ/kXpicnTyuPqSztbDlc=' 'sha256-pvA7g4wG5fQXODm9P6+m3yPodBur2Q1tlGjp2CdBI8s='; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src https://graph.microsoft.com https://login.microsoftonline.com https://*.sharepoint.com; frame-src https://login.microsoftonline.com; form-action 'none'; base-uri 'none'; object-src 'none'"><meta name="referrer" content="no-referrer"><meta name="robots" content="noindex,nofollow"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>מצבה יומית לפי תחנה</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Hebrew:wght@400;500;600;700&family=Rubik:wght@500;700&display=swap">
@@ -90,6 +90,8 @@ select{font:inherit;font-size:.85rem;background:var(--surface);color:var(--fg);b
 .tv[hidden]{display:none}
 .tv-h{display:flex;align-items:center;gap:2.2vw;flex-wrap:nowrap}
 .tv-logo svg{height:5vh;width:auto;color:var(--fg)}
+.tv-top{display:flex;align-items:center;justify-content:center;gap:1.6vw}.tv-top .tv-logo{flex:none;display:flex}.tv-top .tv-logo svg{height:5.2vh}
+.tv-title{font-family:var(--f-num);font-weight:800;font-size:4vh;line-height:1;white-space:nowrap;color:var(--fg)}
 .tv-k{display:flex;flex-direction:column;line-height:1.05}.tv-k b{font-family:var(--f-num);font-size:3.6vh;font-variant-numeric:tabular-nums}.tv-k span{white-space:nowrap;font-size:1.5vh;color:var(--muted)}
 .tv-leg{display:flex;gap:.5vw;flex-wrap:nowrap;white-space:nowrap;font-size:1.6vh;font-weight:600}.tv-leg span{padding:.3vh .7vw;border-radius:999px}
 .tv-leg .good{background:var(--good-bg);color:var(--good)}.tv-leg .warn{background:var(--warn-bg);color:var(--warn)}.tv-leg .bad{background:var(--bad-bg);color:var(--bad)}
@@ -222,6 +224,7 @@ details summary{cursor:pointer;font-weight:600}
   </section>
   <div class="projrow"><button class="btn ghost" id="projBtn" type="button">טעינה מהקבצים ששלחתי בפרויקט</button><span class="sub" id="projStatus" role="status"></span></div>
   <div class="sub" id="shareStatus" role="status"></div>
+  <div class="projrow"><button class="linkbtn" id="wipeBtn" type="button">מחיקת נתוני העובדים וההתחברות מהמחשב הזה</button><span class="sub">למחשב משותף: מוחק את הקבצים וההערות שנשמרו בדפדפן ומנתק מהשירפוינט.</span></div>
   <div class="projrow" id="spRow" hidden><button class="btn ghost" id="spBtn" type="button" hidden>התחברות וטעינה מהשירפוינט</button><span class="sub" id="spStatus" role="status"></span></div>
   <div class="banner" id="sampleBanner">מוצגים כרגע נתוני דוגמה שנוצרו מהתקן, לא עובדים אמיתיים. לחצי על "טעינה מהקבצים ששלחתי בפרויקט" או העלי את הקבצים כאן, והדוגמה תתחלף בנתונים שלך.</div>
 
@@ -420,11 +423,12 @@ const GUESS={status:[/סטטוס/,/^מצב$/],id:[/זיהוי/,/מספר.?עוב
   pay:[/מזהה.?ב?שכר/,/מספר.?ב?שכר/],exit:[/^יציאה$/,/שעת.?יציאה/,/שעת.?סיום/],entry:[/כניסה/,/החתמה/,/שעת.?התחלה/,/^התחלה/]};
 const files={alpon:null,clock:null,att:null};
 // people who are never shown or counted: company owners (any name containing all the listed words) and the employees yarin listed on 2026-10-12.
-// Stored only as hashes so the page carries no names or ID numbers; hh() hashes a normalized ID, full name, or single name word.
+// Security (2026-11-05): the public page carries no list of IDs, not even hashed (a 9-digit ID hash is reversed in minutes).
+// The list is read after sign-in from a workbook in the SharePoint folder whose name contains "הסתרה" (columns: מספר זהות, שם עובד).
 const hh=t=>{let h=5381;for(const ch of String(t))h=(Math.imul(h,33)^ch.codePointAt(0))>>>0;return h.toString(16)};
 const EXEMPT=[["7970ab57", "796f1327"], ["b704458", "796f1327"], ["b6ff8cc", "b2e19924"], ["58bb1c", "796f1327"], ["b706627", "58bb2b", "b703a57"], ["7970fc4c", "796f1327"], ["7970cf7b", "796f1327"], ["796efa88", "796f1327"]];
-const HIDE_IDS=new Set(["2fd901d7", "8c432e28", "c357d487", "3bfb7ebc", "815621d2", "3f5206b8", "9a6f4a1f", "6db96778", "c6c00a55", "f5df7b3f", "2fd8fdb4", "2fd8fdf5", "2fd8fe31", "2fd90235", "2fd9021e", "2fd90271", "2fd9025c", "2fd902bb", "2fd905d3", "2fd905fa", "2fd90655", "2fd9067f", "2fd90631", "2fd906fb", "2fd90a34", "2fd90a57", "2fd90b3b", "30110dd6", "30110d7f", "30110d1b", "30110dba", "30110d53", "30110cf2", "30110051", "300f4f14", "300f4f7d", "300f4f50", "300f4fb3", "300f4e92", "300f507c", "300f4b1c", "300f3f36"]);
-const HIDE_NAMES=new Set(["b0a57439", "bd3500", "92f13b81", "9306e629", "77d46d15", "911783af", "d3abd70a", "32497bd5", "516f9248", "f7462495", "910cc44a", "ff6c0eee", "3489607e", "3d7d47b3", "66312a24", "c1df8713", "baf9ba8c", "68f8c71", "b28d6f94", "f04a5c1b", "25d4ac19", "44632c9e", "10172879", "f3401886", "d00fa932", "9a5e0ab", "7b8371b4", "482fc55", "1b2e5b6d", "47cd5d4a", "c652db02", "e961533b", "cdff3ee5", "eb2c581a", "e0b3092b", "64a7eed8", "c07ee437", "503691e3", "f2ed696d", "156ed2e2", "3f6de9c9", "937c9907"]);
+const HIDE_IDS=new Set();
+const HIDE_NAMES=new Set();
 const nameKey=n=>String(n||'').replace(/["'״׳]/g,'').trim().split(/\s+/);
 const hiddenRec=r=>{const i=normId(r.id);if(i)return HIDE_IDS.has(hh(i));return HIDE_NAMES.has(hh(nameKey(r.name).sort().join(' ')))};
 const ignored=n=>{const w=new Set(nameKey(n).map(hh));return EXEMPT.some(e=>e.every(x=>w.has(x)))};
@@ -469,7 +473,12 @@ function persist(kind){const f=files[kind];
     const keep=new Set(Object.values(f.cols));
     localStorage.setItem('mz_file_'+kind,JSON.stringify({fname:f.fname,at:f.at,headers:f.headers,cols:f.cols,rows:f.rows.map(r=>r.map((v,i)=>keep.has(i)?v:''))}));
     f.saved=true}catch(e){f.saved=false}}
-function restore(){for(const kind of ['alpon','clock','att']){try{const v=localStorage.getItem('mz_file_'+kind);if(v){files[kind]={...JSON.parse(v),saved:true};sample=false}}catch(e){}}}
+// Security (2026-11-05): a copy left in a browser is erased after 30 days, so old employee lists do not stay on shared computers
+const LOCAL_DAYS=30;
+function restore(){for(const kind of ['alpon','clock','att']){try{const v=localStorage.getItem('mz_file_'+kind);if(v){const x=JSON.parse(v);
+  if(!x.at||Date.now()-x.at>LOCAL_DAYS*864e5){localStorage.removeItem('mz_file_'+kind);continue}
+  files[kind]={...x,saved:true};sample=false}}catch(e){}}}
+function wipeLocal(){try{Object.keys(localStorage).filter(k=>/^mz_file_|^mz_notes$|^msal\.|login\.windows\.net|login\.microsoftonline/.test(k)||/-login\.windows\.net-|-login\.microsoftonline\.com-/.test(k)).forEach(k=>localStorage.removeItem(k));sessionStorage.clear()}catch(e){}location.reload()}
 // files sent in the project chat land in the project's uploads folder; pick the newest directory / clock / attendance workbook there by its headers
 function kindOf(headers){const H=headers.join('|');
   if(/כניסה/.test(H)&&/מחלקה/.test(H))return 'att';
@@ -508,6 +517,7 @@ $('#projBtn').onclick=()=>loadFromProject(true);
 // still works and stays in that browser only. Settings come from window.SP_CONFIG {tenant, client, folder} in the page.
 const SP=window.SP_CONFIG&&SP_CONFIG.client&&SP_CONFIG.tenant&&SP_CONFIG.folder?SP_CONFIG:null;
 let spApp=null;var spSeen={},spState={checked:null,need:false,busy:0};
+const HIDE_FILE=/הסתרה|הסתרות|לא לגעת|hidden/i;const hideSig={n:-1};
 // nothing the wall screen waits on may hang forever (2026-10-19: the TV stopped checking at 07:31 with no error)
 const spLimit=(pr,ms)=>Promise.race([pr,new Promise((_,j)=>setTimeout(()=>j(new Error('timeout')),ms))]);
 const spFetch=(u,o={})=>{const c=new AbortController();const t=setTimeout(()=>c.abort(),60000);return fetch(u,{...o,signal:c.signal}).finally(()=>clearTimeout(t))};
@@ -532,8 +542,16 @@ async function loadFromSharePoint(interactive){
     const share='u!'+btoa(unescape(encodeURIComponent(SP.folder))).replace(/=+$/,'').replace(/\//g,'_').replace(/\+/g,'-');
     const list=(await (await g(`https://graph.microsoft.com/v1.0/shares/${share}/driveItem/children?$top=200`)).json()).value
       .filter(x=>x.file&&/\.(xlsx|xls|csv)$/i.test(x.name)).sort((a,b)=>b.lastModifiedDateTime.localeCompare(a.lastModifiedDateTime));
+    const hideFiles=list.filter(x=>HIDE_FILE.test(x.name));
+    if(hideFiles.length!==hideSig.n||hideFiles.some(it=>!spSeen[it.id]||spSeen[it.id].m!==it.lastModifiedDateTime)){
+      const ids=new Set(),names=new Set();
+      for(const it of hideFiles){try{const p=parseSheet(await (await spFetch(it['@microsoft.graph.downloadUrl'])).arrayBuffer());
+        const ci=p.headers.findIndex(h=>/זהות|ת\.?ז|זיהוי/.test(h)),cn=p.headers.findIndex(h=>/שם/.test(h));
+        p.rows.forEach(r=>{const i=ci>=0?normId(r[ci]):null;if(i)ids.add(hh(i));else if(cn>=0&&String(r[cn]).trim())names.add(hh(nameKey(r[cn]).sort().join(' ')))});
+        spSeen[it.id]={m:it.lastModifiedDateTime,k:null}}catch(x){}}
+      HIDE_IDS.clear();ids.forEach(x=>HIDE_IDS.add(x));HIDE_NAMES.clear();names.forEach(x=>HIDE_NAMES.add(x));hideSig.n=hideFiles.length}
     const found={};
-    for(const it of list){if(found.alpon&&found.clock&&found.att)break;
+    for(const it of list.filter(x=>!HIDE_FILE.test(x.name))){if(found.alpon&&found.clock&&found.att)break;
       const at=Date.parse(it.lastModifiedDateTime);
       // a file already read and unchanged since is not downloaded again
       const seen=spSeen[it.id];if(seen&&seen.m===it.lastModifiedDateTime){if(seen.k&&!found[seen.k])found[seen.k]=true;continue}
@@ -801,7 +819,7 @@ function renderTv(){
     <div class="tv-m"><div class="tv-p ${cl}${ok?'':' tv-ns'}"><b>${ok?pct(v/a.std):'אין תקן'}</b><span>איוש</span></div>
     <div class="tv-a ${R.has.att&&a.std?arrLv(a.att/a.std):''}"><b>${R.has.att&&a.std?pct(a.att/a.std):'—'}</b><span>הגעה</span></div></div>
     <div class="tv-r">תקן <b>${fmt(a.std)}</b> · מצבה <b>${v==null?'—':fmt(v)}</b>${R.has.clock&&!a.alpon&&a.clock?` · בפועל <b>${fmt(a.clock)}</b>`:''}${R.has.att?` · הגיעו <b>${fmt(a.att)}</b>`:''}</div></div>`};
-  $('#v-tv').innerHTML=`<div class="tv-h"><div class="tv-logo">${logo}</div>
+  $('#v-tv').innerHTML=`<div class="tv-top"><div class="tv-logo">${logo}</div><div class="tv-title">תקן מול מצבה</div></div><div class="tv-h">
     <div class="tv-k"><b dir="ltr">${M==null?'—':fmt(M)}/${fmt(T)}</b><span>מצבה (מל"מ) / תקן</span></div>
     <div class="tv-k"><b>${M==null||!T?'—':pct(M/T)}</b><span>איוש</span></div><div class="tv-k"><b>${A==null||!T?'—':pct(A/T)}</b><span>הגעה (הגיעו / תקן)</span></div>
     <div class="tv-leg"><span class="bad">${cnt.bad} מתחת ל-70%</span>${cnt.nostd?`<span class="bad">${cnt.nostd} בלי תקן</span>`:''}<span class="warn">${cnt.warn} בין 70%-95%</span><span class="over">${cnt.over} מעל 105%</span><span class="good">${cnt.good} תקין</span></div>
@@ -1281,6 +1299,7 @@ function addXlButtons(){document.querySelectorAll('.tblwrap').forEach(w=>{const 
   d.firstChild.onclick=()=>exportTable(w,d.firstChild);w.before(d)})}
 let xlT=0;new MutationObserver(()=>{clearTimeout(xlT);xlT=setTimeout(addXlButtons,50)}).observe(document.body,{childList:true,subtree:true});
 $('#exportBtn').onclick=doExport;
+$('#wipeBtn').onclick=()=>{const b=$('#wipeBtn');if(b.dataset.sure){wipeLocal();return}b.dataset.sure='1';b.textContent='ללחוץ שוב לאישור המחיקה'};
 restore();['alpon','clock','att'].forEach(renderCols);recompute();
 setTimeout(()=>loadFromProject(false),300);
 </script>
