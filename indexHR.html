@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="he" dir="rtl"><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-VK+0dGuEKG03fFMktSTVTpPmQGl6cnCwIalNVGZj0Wk=' 'sha256-BMw87LM356ih8pq8v6e1jyX/x/JaYciEHR6oZ6w3nK0=' 'sha256-0gYfulAi7nHaRuZClQ4j+bqJ/kXpicnTyuPqSztbDlc=' 'sha256-pvA7g4wG5fQXODm9P6+m3yPodBur2Q1tlGjp2CdBI8s='; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src https://graph.microsoft.com https://login.microsoftonline.com https://*.sharepoint.com; frame-src https://login.microsoftonline.com; form-action 'none'; base-uri 'none'; object-src 'none'"><meta name="referrer" content="no-referrer"><meta name="robots" content="noindex,nofollow"><meta name="viewport" content="width=device-width,initial-scale=1">
+<html lang="he" dir="rtl"><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-VK+0dGuEKG03fFMktSTVTpPmQGl6cnCwIalNVGZj0Wk=' 'sha256-BMw87LM356ih8pq8v6e1jyX/x/JaYciEHR6oZ6w3nK0=' 'sha256-0gYfulAi7nHaRuZClQ4j+bqJ/kXpicnTyuPqSztbDlc=' 'sha256-Nf/Px4bn18SLf1xXhf3mT3Pmoll9Y/DoHtmgsTW7xVI='; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src https://graph.microsoft.com https://login.microsoftonline.com https://*.sharepoint.com; frame-src https://login.microsoftonline.com; form-action 'none'; base-uri 'none'; object-src 'none'"><meta name="referrer" content="no-referrer"><meta name="robots" content="noindex,nofollow"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>מצבה יומית לפי תחנה</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Hebrew:wght@400;500;600;700&family=Rubik:wght@500;700&display=swap">
@@ -518,6 +518,9 @@ $('#projBtn').onclick=()=>loadFromProject(true);
 const SP=window.SP_CONFIG&&SP_CONFIG.client&&SP_CONFIG.tenant&&SP_CONFIG.folder?SP_CONFIG:null;
 let spApp=null;var spSeen={},spState={checked:null,need:false,busy:0};
 const HIDE_FILE=/הסתרה|הסתרות|לא לגעת|hidden/i;const hideSig={n:-1};
+// the standard (תקן) can live in the same SharePoint folder (yarin 2026-11-09): the newest workbook whose name contains "תקן",
+// in the format of the "תקן" tab's download (אשכול | תחנה | מקצוע | תקן). When it differs from what this page shows, the page switches to it.
+const STD_FILE=/תקן/;let spStdMsg='';
 // nothing the wall screen waits on may hang forever (2026-10-19: the TV stopped checking at 07:31 with no error)
 const spLimit=(pr,ms)=>Promise.race([pr,new Promise((_,j)=>setTimeout(()=>j(new Error('timeout')),ms))]);
 const spFetch=(u,o={})=>{const c=new AbortController();const t=setTimeout(()=>c.abort(),60000);return fetch(u,{...o,signal:c.signal}).finally(()=>clearTimeout(t))};
@@ -550,8 +553,17 @@ async function loadFromSharePoint(interactive){
         p.rows.forEach(r=>{const i=ci>=0?normId(r[ci]):null;if(i)ids.add(hh(i));else if(cn>=0&&String(r[cn]).trim())names.add(hh(nameKey(r[cn]).sort().join(' ')))});
         spSeen[it.id]={m:it.lastModifiedDateTime,k:null}}catch(x){}}
       HIDE_IDS.clear();ids.forEach(x=>HIDE_IDS.add(x));HIDE_NAMES.clear();names.forEach(x=>HIDE_NAMES.add(x));hideSig.n=hideFiles.length}
+    const stdIt=list.find(x=>STD_FILE.test(x.name)&&!HIDE_FILE.test(x.name));
+    if(stdIt&&!(spSeen[stdIt.id]&&spSeen[stdIt.id].m===stdIt.lastModifiedDateTime)){
+      try{const r=stdParse(await (await spFetch(stdIt['@microsoft.graph.downloadUrl'])).arrayBuffer());
+        spSeen[stdIt.id]={m:stdIt.lastModifiedDateTime,k:null};
+        if(r.err){spStdMsg=' · קובץ התקן בשירפוינט לא נקרא: '+r.err}
+        else{const st=r.list.filter(x=>stdSum(x)||!x.extra).map(x=>({c:x.c,n:x.n,p:Object.fromEntries(Object.entries(x.p).filter(([,v])=>+v))}));
+          spStdMsg=' · תקן מהשירפוינט';
+          if(JSON.stringify(st)!==JSON.stringify(STD_SAVED?STD_SAVED.stations:null)){save('mz_std',{stations:st,at:stdIt.lastModifiedDateTime,src:'sp'});if(JSON.stringify((load('mz_std',{})||{}).stations)===JSON.stringify(st)){location.reload();return}}}
+      }catch(x){}}
     const found={};
-    for(const it of list.filter(x=>!HIDE_FILE.test(x.name))){if(found.alpon&&found.clock&&found.att)break;
+    for(const it of list.filter(x=>!HIDE_FILE.test(x.name)&&x!==stdIt)){if(found.alpon&&found.clock&&found.att)break;
       const at=Date.parse(it.lastModifiedDateTime);
       // a file already read and unchanged since is not downloaded again
       const seen=spSeen[it.id];if(seen&&seen.m===it.lastModifiedDateTime){if(seen.k&&!found[seen.k])found[seen.k]=true;continue}
@@ -560,7 +572,7 @@ async function loadFromSharePoint(interactive){
       const cur=files[k];if(cur&&cur.at>=at)continue;                 // a newer hand upload (or the same file) stays
       files[k]={...p,fname:it.name+' (שירפוינט)',cols:guessCols(k,p.headers),at};sample=false;persist(k);renderCols(k)}
     const n=['alpon','clock','att'].filter(k=>found[k]).length;
-    el.textContent=n?`נטען מהשירפוינט (${n} קבצים) · נבדק ב-${new Date().toLocaleTimeString('he-IL',{hour:'2-digit',minute:'2-digit'})}`:'לא נמצאו בתיקייה קבצי מל"מ, איזיטיים או נוכחות.';
+    el.textContent=(n?`נטען מהשירפוינט (${n} קבצים) · נבדק ב-${new Date().toLocaleTimeString('he-IL',{hour:'2-digit',minute:'2-digit'})}`:'לא נמצאו בתיקייה קבצי מל"מ, איזיטיים או נוכחות.')+spStdMsg;
     spState.checked=Date.now();spState.err=false;recompute();
   }catch(e){el.textContent='הטעינה מהשירפוינט לא הצליחה. בדקי שיש לך גישה לתיקייה ונסי שוב.';$('#spBtn').hidden=false;spState.err=true;tvNow()}
   finally{spState.busy=0}}
